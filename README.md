@@ -2,6 +2,11 @@
 
 A Firefox extension that automatically unloads (discards) idle tabs. It does the same as right-click → *Unload Tab*: the tab stays in the tab bar, greyed out, and reloads when you click it.
 
+## Install
+
+- **Firefox Add-ons**: [Magic Tab Unloader on addons.mozilla.org](https://addons.mozilla.org/en-US/firefox/addon/magic-tab-unloader/). It has been submitted and is waiting for review, so the page opens once it is approved.
+- **From GitHub**: download the `.xpi` from the [latest release](https://github.com/halilkhrmn/magic-tab-unloader-firefox/releases/latest). Unsigned builds load permanently only in Firefox Developer Edition, Nightly or ESR with `xpinstall.signatures.required` set to false.
+
 ## Features
 
 - **Idle unload** with a global default time. The active tab and tabs playing audio are skipped, and pinned tabs can be excluded.
