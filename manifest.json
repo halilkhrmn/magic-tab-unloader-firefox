@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Magic Tab Unloader",
+  "version": "0.1.0",
+  "description": "Automatically unloads (discards) idle tabs with per-site profiles, notification-aware pinned tab refresh and more.",
+  "browser_specific_settings": {
+    "gecko": { "id": "magic-tab-unloader@halilkhrmn", "strict_min_version": "140.0", "data_collection_permissions": { "required": ["none"] } }
+  },
+  "permissions": ["tabs", "alarms", "storage"],
+  "background": { "scripts": ["src/shared.js", "src/background.js"] },
+  "action": { "default_title": "Magic Tab Unloader", "default_popup": "src/popup.html" },
+  "options_ui": { "page": "src/options.html", "open_in_tab": true }
+}
