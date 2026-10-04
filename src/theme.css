@@ -1,0 +1,58 @@
+/* Shared theme for the popup and the settings page. Colours come from the logo:
+   indigo (#7C6CFF -> #4F3FD8), gold sparkle (#FFC857), cool grey (#9AA0B4), deep indigo (#2B2560). */
+:root {
+  --bg: #f6f5fc;
+  --surface: #ffffff;
+  --fg: #231f4d;
+  --muted: #6a6790;
+  --line: #e0def0;
+  --accent: #5a49e8;
+  --accent-hover: #4a3bd0;
+  --accent-fg: #ffffff;
+  --accent-soft: #ecebfd;
+  --gold: #e0a100;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17152f;
+    --surface: #211e45;
+    --fg: #ecebf9;
+    --muted: #a7a4cc;
+    --line: #373263;
+    --accent: #8b7dff;
+    --accent-hover: #a094ff;
+    --accent-fg: #15132b;
+    --accent-soft: #2e2a5c;
+    --gold: #ffc857;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, h2 { margin: 0; text-wrap: balance; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand img { width: 32px; height: 32px; }
+.brand h1 { font-size: 1.05rem; }
+.muted, small { color: var(--muted); }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+fieldset.card { margin: 0 0 14px; }
+legend { padding: 0 6px; font-weight: 600; color: var(--accent); }
+label { display: block; margin: 6px 0; }
+label.inline, .row label { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+.row { display: flex; gap: 8px 16px; flex-wrap: wrap; align-items: center; margin: 6px 0; }
+input[type=text], input[type=number], input[type=time], select {
+  font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px;
+}
+input[type=text] { width: 100%; }
+input[type=number] { width: 5.5em; }
+input[type=checkbox] { accent-color: var(--accent); width: 15px; height: 15px; }
+button {
+  font: inherit; font-weight: 600; cursor: pointer; border-radius: 8px; padding: 6px 12px;
+  color: var(--accent); background: var(--accent-soft); border: 1px solid transparent;
+}
+button:hover { border-color: var(--accent); }
+button.primary { color: var(--accent-fg); background: var(--accent); }
+button.primary:hover { background: var(--accent-hover); }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+code { background: var(--accent-soft); border-radius: 4px; padding: 1px 5px; }

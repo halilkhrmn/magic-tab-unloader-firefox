@@ -2,6 +2,5 @@
   "extName": { "message": "Magic Tab Unloader" },
   "extDescription": { "message": "Automatically unloads idle tabs to save memory, with per-site profiles, schedules and notification-aware refresh." },
   "menuNever": { "message": "Never unload this site" },
-  "menuAllow": { "message": "Allow unloading this site again" },
-  "notificationTitle": { "message": "New activity: $HOST$", "placeholders": { "host": { "content": "$1" } } }
+  "menuAllow": { "message": "Allow unloading this site again" }
 }

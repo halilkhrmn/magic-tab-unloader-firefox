@@ -57,8 +57,8 @@ function collect() {
     ...settings,
     defaultTimeoutMin: $("defaultTimeoutMin").value,
     skipAudible: $("skipAudible").checked,
-    notifyOnFound: $("notifyOnFound").checked,
-    estimateMbPerTab: $("estimateMbPerTab").value,
+    skipPinned: $("skipPinned").checked,
+    refresh: { enabled: $("refreshOn").checked, intervalMin: $("refreshInterval").value, pinnedOnly: $("pinnedOnly").checked },
     notificationPattern: $("notificationPattern").value,
     profiles: [...$("profiles").children].map((f) => f.collect()),
   });
@@ -67,8 +67,10 @@ function collect() {
 function render() {
   $("defaultTimeoutMin").value = settings.defaultTimeoutMin;
   $("skipAudible").checked = settings.skipAudible;
-  $("notifyOnFound").checked = settings.notifyOnFound;
-  $("estimateMbPerTab").value = settings.estimateMbPerTab;
+  $("skipPinned").checked = settings.skipPinned;
+  $("refreshOn").checked = settings.refresh.enabled;
+  $("refreshInterval").value = settings.refresh.intervalMin;
+  $("pinnedOnly").checked = settings.refresh.pinnedOnly;
   $("notificationPattern").value = settings.notificationPattern;
   $("profiles").replaceChildren(...settings.profiles.map(profileEl));
 }

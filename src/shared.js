@@ -8,22 +8,13 @@ const DEFAULT_SETTINGS = {
   paused: false,
   defaultTimeoutMin: 30, // idle minutes before a tab is unloaded (0 = never)
   skipAudible: true, // never unload tabs that are playing sound
+  skipPinned: false, // never unload pinned tabs
+  // Periodically reload unloaded tabs in the background so the site can show its
+  // notification dot / title counter, then unload them again.
+  refresh: { enabled: false, intervalMin: 15, pinnedOnly: true },
   notificationPattern: "^\\(\\d+\\+?\\)|^\\[\\d+\\]|^\\d+ new", // titles like "(3) Inbox"
-  notifyOnFound: true, // show a desktop notification when a refreshed tab has news
-  estimateMbPerTab: 150, // used for the memory-saved estimate only
   // First matching profile wins.
-  profiles: [
-    {
-      id: "pinned",
-      name: "Pinned tabs",
-      hosts: [],
-      pinned: "only", // any | only | not
-      never: false,
-      timeoutMin: 120,
-      refresh: { enabled: true, intervalMin: 15 },
-      hours: { enabled: false, from: "09:00", to: "18:00", days: [1, 2, 3, 4, 5] },
-    },
-  ],
+  profiles: [],
 };
 
 function hostOf(url) {
@@ -87,19 +78,28 @@ function hasNotification(tab, pattern) {
 
 function isDiscardable(tab, settings) {
   if (tab.active || tab.discarded) return false;
+  if (settings.skipPinned && tab.pinned) return false;
   if (settings.skipAudible && tab.audible) return false;
   return /^https?:/.test(tab.url || "");
+}
+
+// The refresh rule for a tab: the profile's own rule if enabled, else the global one.
+function refreshRule(settings, profile, tab) {
+  if (profile && profile.refresh && profile.refresh.enabled) return profile.refresh;
+  const g = settings.refresh;
+  return g.enabled && (!g.pinnedOnly || tab.pinned) ? g : null;
 }
 
 // Decide what to do with a tab right now: "discard", "refresh" or null.
 // ctx: { now: ms, refreshedAt: ms | undefined }
 function planTab(tab, settings, ctx) {
   if (tab.active) return null;
+  if (settings.skipPinned && tab.pinned) return null;
   const profile = findProfile(settings, tab, new Date(ctx.now));
   if (profile && profile.never) return null;
   if (tab.discarded) {
-    const r = profile && profile.refresh;
-    if (r && r.enabled && ctx.now - (ctx.refreshedAt ?? 0) >= r.intervalMin * 60000) return "refresh";
+    const r = refreshRule(settings, profile, tab);
+    if (r && ctx.now - (ctx.refreshedAt ?? 0) >= r.intervalMin * 60000) return "refresh";
     return null;
   }
   if (!isDiscardable(tab, settings)) return null;
@@ -173,8 +173,12 @@ function sanitizeSettings(raw) {
     defaultTimeoutMin: num(raw.defaultTimeoutMin, d.defaultTimeoutMin),
     skipAudible: raw.skipAudible === undefined ? d.skipAudible : !!raw.skipAudible,
     notificationPattern: pattern,
-    notifyOnFound: raw.notifyOnFound === undefined ? d.notifyOnFound : !!raw.notifyOnFound,
-    estimateMbPerTab: num(raw.estimateMbPerTab, d.estimateMbPerTab),
+    skipPinned: !!raw.skipPinned,
+    refresh: {
+      enabled: !!(raw.refresh && raw.refresh.enabled),
+      intervalMin: Math.max(1, num(raw.refresh && raw.refresh.intervalMin, d.refresh.intervalMin)),
+      pinnedOnly: !raw.refresh || raw.refresh.pinnedOnly === undefined ? d.refresh.pinnedOnly : !!raw.refresh.pinnedOnly,
+    },
     profiles: profiles.map(sanitizeProfile).filter(Boolean),
   };
 }
@@ -191,6 +195,6 @@ async function loadSettings() {
 if (typeof module !== "undefined") {
   module.exports = {
     DEFAULT_SETTINGS, WHITELIST_ID, hostOf, matchHost, toMinutes, inHours, profileMatches, findProfile,
-    hasNotification, isDiscardable, planTab, isWhitelisted, toggleWhitelist, sanitizeSettings,
+    hasNotification, isDiscardable, refreshRule, planTab, isWhitelisted, toggleWhitelist, sanitizeSettings,
   };
 }

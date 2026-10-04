@@ -4,12 +4,12 @@ A Firefox extension that automatically unloads (discards) idle tabs. It does the
 
 ## Features
 
-- **Idle unload** with a global default time. The active tab and tabs playing audio are skipped.
-- **Profiles** matched by hostname (`github.com` also covers subdomains, `*.google.com` is accepted) and pinned state. Each profile sets its own idle time, or "never unload". First match wins.
+- **Idle unload** with a global default time. The active tab and tabs playing audio are skipped, and pinned tabs can be excluded.
+- **Auto-refresh**: unloaded tabs are reloaded in the background every N minutes (optionally pinned tabs only) so sites can show their notification dot or title counter, then unloaded again. Tabs whose title matches the notification pattern (for example `(3) Inbox`) or that Firefox marks with its attention dot are counted on the toolbar badge.
+- **Profiles** matched by hostname (`github.com` also covers subdomains, `*.google.com` is accepted) and pinned state. Each profile sets its own idle time, its own refresh rule, or "never unload". First match wins.
 - **Active hours** per profile: weekdays, time windows, overnight windows.
-- **Notification-aware refresh**: unloaded tabs are reloaded in the background at an interval. If the title matches the notification pattern (for example `(3) Inbox`) or Firefox marks the tab with its attention dot, the toolbar badge counts it, a desktop notification is shown (optional) and the tab is unloaded again.
 - **Right-click whitelist**: "Never unload this site" on pages and tabs.
-- **Memory estimate** in the popup (an estimate: Firefox does not expose per-tab memory to extensions).
+- **Popup** for the simple settings (pause, idle time, pinned tabs, auto-refresh) and a link to the full settings page.
 - **Export / import** of settings as JSON.
 
 ## Development

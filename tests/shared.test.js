@@ -99,6 +99,37 @@ test("planTab: refresh only for discarded tabs whose interval elapsed", () => {
   assert.equal(S.planTab(tab({ discarded: true }), s, { now, refreshedAt: 0 }), null, "unpinned: no profile");
 });
 
+test("planTab: global refresh applies to unloaded tabs, pinned-only by default", () => {
+  const s = settings({ refresh: { enabled: true, intervalMin: 10 } });
+  const now = 100 * MIN;
+  const ctx = { now, refreshedAt: now - 11 * MIN };
+  assert.equal(S.planTab(tab({ pinned: true, discarded: true }), s, ctx), "refresh");
+  assert.equal(S.planTab(tab({ discarded: true }), s, ctx), null, "unpinned tabs are skipped");
+  const all = settings({ refresh: { enabled: true, intervalMin: 10, pinnedOnly: false } });
+  assert.equal(S.planTab(tab({ discarded: true }), all, ctx), "refresh");
+  assert.equal(S.planTab(tab({ pinned: true, discarded: true }), s, { now, refreshedAt: now - 2 * MIN }), null);
+  assert.equal(S.planTab(tab({ pinned: true, discarded: true }), settings(), ctx), null, "off by default");
+});
+
+test("planTab: a profile's own refresh rule overrides the global one", () => {
+  const s = settings({
+    refresh: { enabled: true, intervalMin: 60, pinnedOnly: false },
+    profiles: [{ id: "chat", hosts: ["chat.com"], refresh: { enabled: true, intervalMin: 5 } }],
+  });
+  const now = 100 * MIN;
+  const chat = tab({ url: "https://chat.com", discarded: true });
+  assert.equal(S.planTab(chat, s, { now, refreshedAt: now - 6 * MIN }), "refresh");
+  assert.equal(S.planTab(tab({ discarded: true }), s, { now, refreshedAt: now - 6 * MIN }), null);
+});
+
+test("skipPinned: pinned tabs are never unloaded or refreshed", () => {
+  const s = settings({ skipPinned: true, refresh: { enabled: true, intervalMin: 1 } });
+  const now = 1000 * MIN;
+  assert.equal(S.planTab(tab({ pinned: true, lastAccessed: 0 }), s, { now }), null);
+  assert.equal(S.planTab(tab({ pinned: true, discarded: true }), s, { now, refreshedAt: 0 }), null);
+  assert.equal(S.planTab(tab({ lastAccessed: 0 }), s, { now }), "discard", "other tabs still unload");
+});
+
 test("toggleWhitelist adds then removes a host without mutating the input", () => {
   const s = settings({ profiles: [{ id: "x", name: "X" }] });
   const added = S.toggleWhitelist(s, "news.site.com");
@@ -115,13 +146,16 @@ test("toggleWhitelist adds then removes a host without mutating the input", () =
 test("sanitizeSettings: defaults, coercion and validation", () => {
   const d = S.sanitizeSettings({});
   assert.equal(d.defaultTimeoutMin, 30);
-  assert.equal(d.profiles[0].id, "pinned");
+  assert.deepEqual(d.profiles, []);
+  assert.equal(d.skipPinned, false);
+  assert.deepEqual(d.refresh, { enabled: false, intervalMin: 15, pinnedOnly: true });
   const s = S.sanitizeSettings({
-    defaultTimeoutMin: "45", estimateMbPerTab: -3,
+    defaultTimeoutMin: "45", refresh: { enabled: 1, intervalMin: "0" }, notifyOnFound: true, estimateMbPerTab: 99,
     profiles: [null, 5, { name: "A", hosts: [" Foo.com ", ""], pinned: "weird", timeoutMin: "", refresh: { enabled: 1, intervalMin: 0 }, hours: { from: "99:99", days: [1, 9, "x"] } }],
   });
   assert.equal(s.defaultTimeoutMin, 45);
-  assert.equal(s.estimateMbPerTab, 150);
+  assert.deepEqual(s.refresh, { enabled: true, intervalMin: 1, pinnedOnly: true });
+  assert.ok(!("notifyOnFound" in s) && !("estimateMbPerTab" in s), "removed options are dropped");
   assert.equal(s.profiles.length, 1);
   const p = s.profiles[0];
   assert.deepEqual(p.hosts, ["foo.com"]);
