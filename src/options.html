@@ -1,24 +1,54 @@
 <!doctype html>
 <meta charset="utf-8">
+<meta name="color-scheme" content="light dark">
 <title>Magic Tab Unloader – Settings</title>
 <style>
   body{font:14px system-ui;max-width:760px;margin:24px auto;padding:0 16px}
   fieldset{margin:12px 0;border:1px solid #8884;border-radius:6px}
-  label{display:block;margin:6px 0} input[type=text],input[type=number],select{padding:3px}
+  label{display:block;margin:6px 0}
   input[type=text]{width:100%;box-sizing:border-box}
   .row{display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+  .row label,.days label{display:inline-block}
+  .days label{margin-right:8px}
 </style>
 <h1>Magic Tab Unloader</h1>
 <fieldset><legend>General</legend>
   <label>Default idle time before unload (minutes, 0 = never)
     <input type="number" id="defaultTimeoutMin" min="0"></label>
   <label><input type="checkbox" id="skipAudible"> Never unload tabs playing audio</label>
-  <label>Notification title regex (tab is considered to have a notification when it matches)
+  <label><input type="checkbox" id="notifyOnFound"> Show a desktop notification when a refreshed tab has news</label>
+  <label>Estimated memory per tab (MB, used for the savings estimate only)
+    <input type="number" id="estimateMbPerTab" min="1"></label>
+  <label>Notification title regex (a tab "has news" when its title matches; Firefox's blue attention dot also counts)
     <input type="text" id="notificationPattern"></label>
 </fieldset>
 <h2>Profiles</h2>
-<p>First matching profile wins. Hosts match the domain and its subdomains (<code>github.com</code>, <code>*.google.com</code>); leave empty to match any site.</p>
+<p>The first matching profile wins. Hosts match the domain and its subdomains (<code>github.com</code>, <code>*.google.com</code>); leave empty to match any site. A profile with active hours only applies inside that window.</p>
 <div id="profiles"></div>
-<button id="add">+ Add profile</button> <button id="save">Save</button> <span id="status"></span>
+<p><button id="add">+ Add profile</button> <button id="save">Save</button> <span id="status" role="status"></span></p>
+<h2>Backup</h2>
+<p><button id="export">Export settings</button> <button id="import">Import settings…</button>
+<input type="file" id="file" accept="application/json,.json" hidden></p>
+<template id="profile-tpl">
+  <fieldset>
+    <legend><input type="text" data-k="name" style="width:200px" aria-label="Profile name"></legend>
+    <label>Hosts (comma separated)<input type="text" data-k="hosts"></label>
+    <div class="row">
+      <label>Pinned <select data-k="pinned"><option>any</option><option>only</option><option>not</option></select></label>
+      <label>Idle minutes (empty = default, 0 = never) <input type="number" data-k="timeoutMin" min="0"></label>
+      <label><input type="checkbox" data-k="never"> Never unload</label>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" data-k="refreshOn"> Periodically refresh unloaded tabs</label>
+      <label>every <input type="number" data-k="interval" min="1"> min</label>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" data-k="hoursOn"> Only during</label>
+      <input type="time" data-k="from" aria-label="From"> – <input type="time" data-k="to" aria-label="To">
+    </div>
+    <div class="days"></div>
+    <p><button data-act="up">Move up</button> <button data-act="del">Delete</button></p>
+  </fieldset>
+</template>
 <script src="shared.js"></script>
 <script src="options.js"></script>

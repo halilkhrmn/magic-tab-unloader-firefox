@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Magic Tab Unloader – Auto-unload idle tabs in Firefox</title>
+<meta name="description" content="Firefox extension that automatically unloads idle tabs, with per-site profiles, schedules and notification-aware refresh for pinned tabs.">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root{--bg:#f7f6fc;--fg:#1d1b3a;--muted:#5f5c80;--card:#fff;--line:#e4e2f1;--accent:#5a49e8;--accent-fg:#fff;--gold:#d99a00}
+  @media (prefers-color-scheme:dark){:root{--bg:#13122a;--fg:#ecebf8;--muted:#a9a7ca;--card:#1c1a3a;--line:#2f2c58;--accent:#8b7dff;--accent-fg:#13122a;--gold:#ffc857;color-scheme:dark}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+  .wrap{max-width:900px;margin:0 auto;padding:0 20px}
+  header{padding:56px 0 40px;display:flex;gap:28px;align-items:center;flex-wrap:wrap}
+  header img{width:112px;height:112px}
+  h1{font-size:2.4rem;line-height:1.15;margin:0 0 10px;text-wrap:balance}
+  .tag{color:var(--muted);font-size:1.15rem;margin:0 0 20px;max-width:46ch}
+  .btn{display:inline-block;padding:10px 20px;border-radius:8px;background:var(--accent);color:var(--accent-fg);font-weight:600;text-decoration:none;margin-right:8px}
+  .btn.alt{background:transparent;color:var(--fg);border:1px solid var(--line)}
+  h2{font-size:1.4rem;margin:48px 0 16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px}
+  .card h3{margin:0 0 6px;font-size:1.02rem}.card p{margin:0;color:var(--muted);font-size:.94rem}
+  code{background:var(--card);border:1px solid var(--line);border-radius:4px;padding:1px 5px;font-size:.9em}
+  ol{padding-left:1.3em}li{margin:6px 0}
+  table{border-collapse:collapse;width:100%;font-size:.93rem}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  .scroll{overflow-x:auto}
+  footer{margin:56px 0 40px;color:var(--muted);font-size:.9rem;border-top:1px solid var(--line);padding-top:20px}
+  a{color:var(--accent)}.btn,.btn:hover{text-decoration:none}
+  a:focus-visible,.btn:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <img src="icon.svg" alt="Magic Tab Unloader logo">
+  <div>
+    <h1>Magic Tab Unloader</h1>
+    <p class="tag">Unload idle Firefox tabs automatically, the same as right-click → Unload Tab, with rules per site.</p>
+    <a class="btn" href="https://github.com/halilkhrmn/magic-tab-unloader-firefox/releases/latest">Download</a>
+    <a class="btn alt" href="https://github.com/halilkhrmn/magic-tab-unloader-firefox">Source on GitHub</a>
+  </div>
+</header>
+
+<h2>What it does</h2>
+<div class="grid">
+  <div class="card"><h3>Automatic unload</h3><p>Tabs that sit idle past a time limit are unloaded. They stay in your tab bar and reload when you click them. The active tab and tabs playing audio are never touched.</p></div>
+  <div class="card"><h3>Profiles per site</h3><p>Match by hostname and pinned state. Give <code>docs.example.com</code> two hours, a chat tab five minutes, and your bank "never".</p></div>
+  <div class="card"><h3>News-aware refresh</h3><p>Unloaded tabs are reloaded in the background every few minutes. If the title shows <code>(3) Inbox</code> or Firefox marks the tab with its blue dot, you get a badge and a notification, then the tab is unloaded again.</p></div>
+  <div class="card"><h3>Active hours</h3><p>Apply a profile only on weekdays, during work hours, or overnight. Overnight windows such as 22:00–06:00 work.</p></div>
+  <div class="card"><h3>Right-click whitelist</h3><p>"Never unload this site" on any page or tab. Choose it again to undo.</p></div>
+  <div class="card"><h3>Memory estimate</h3><p>The popup shows how many tabs are unloaded and an estimate of the memory freed. Firefox does not give extensions real per-tab memory, so the figure uses a size you can adjust.</p></div>
+  <div class="card"><h3>Backup</h3><p>Export your profiles to a JSON file and import them on another computer.</p></div>
+  <div class="card"><h3>Private by design</h3><p>No accounts, no analytics and no network requests. Settings stay in your browser.</p></div>
+</div>
+
+<h2>Install</h2>
+<ol>
+  <li>Download the latest <code>.xpi</code> from the <a href="https://github.com/halilkhrmn/magic-tab-unloader-firefox/releases/latest">releases page</a>.</li>
+  <li>In Firefox open <code>about:addons</code>, click the gear icon and choose <strong>Install Add-on From File…</strong>.</li>
+  <li>Open the extension's settings to create your first profile.</li>
+</ol>
+<p>Unsigned builds load permanently only in Firefox Developer Edition, Nightly or ESR with <code>xpinstall.signatures.required</code> set to false. A listing on addons.mozilla.org is planned.</p>
+
+<h2>Permissions</h2>
+<div class="scroll"><table>
+  <tr><th>Permission</th><th>Why</th></tr>
+  <tr><td><code>tabs</code></td><td>Read tab URLs, titles and last-used time, and unload tabs.</td></tr>
+  <tr><td><code>alarms</code></td><td>Run the once-a-minute check.</td></tr>
+  <tr><td><code>storage</code></td><td>Save your settings and unload statistics locally.</td></tr>
+  <tr><td><code>menus</code></td><td>Add the "Never unload this site" right-click item.</td></tr>
+  <tr><td><code>notifications</code></td><td>Tell you when a refreshed tab has news.</td></tr>
+</table></div>
+
+<footer>Free software under the GPL-3.0 license. Not affiliated with Mozilla. <a href="https://github.com/halilkhrmn/magic-tab-unloader-firefox/blob/main/PRIVACY.md">Privacy</a></footer>
+</div>
+</body>
+</html>

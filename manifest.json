@@ -1,13 +1,25 @@
 {
   "manifest_version": 3,
-  "name": "Magic Tab Unloader",
-  "version": "0.1.0",
-  "description": "Automatically unloads (discards) idle tabs with per-site profiles, notification-aware pinned tab refresh and more.",
+  "name": "__MSG_extName__",
+  "version": "0.2.0",
+  "description": "__MSG_extDescription__",
+  "default_locale": "en",
+  "author": "halilkhrmn",
+  "homepage_url": "https://github.com/halilkhrmn/magic-tab-unloader-firefox",
+  "icons": { "48": "icons/icon-48.png", "96": "icons/icon-96.png", "128": "icons/icon-128.png" },
   "browser_specific_settings": {
-    "gecko": { "id": "magic-tab-unloader@halilkhrmn", "strict_min_version": "140.0", "data_collection_permissions": { "required": ["none"] } }
+    "gecko": {
+      "id": "magic-tab-unloader@halilkhrmn.github.io",
+      "strict_min_version": "140.0",
+      "data_collection_permissions": { "required": ["none"] }
+    }
   },
-  "permissions": ["tabs", "alarms", "storage"],
+  "permissions": ["tabs", "alarms", "storage", "menus", "notifications"],
   "background": { "scripts": ["src/shared.js", "src/background.js"] },
-  "action": { "default_title": "Magic Tab Unloader", "default_popup": "src/popup.html" },
+  "action": {
+    "default_title": "__MSG_extName__",
+    "default_popup": "src/popup.html",
+    "default_icon": { "48": "icons/icon-48.png", "96": "icons/icon-96.png" }
+  },
   "options_ui": { "page": "src/options.html", "open_in_tab": true }
 }
