@@ -111,8 +111,9 @@ function planTab(tab, settings, ctx) {
 }
 
 // URLs of the tabs that are currently unloaded (remembered across a browser restart).
+// A tab the user just switched to may still report itself as unloaded while it loads.
 function unloadedUrls(tabs) {
-  return tabs.filter((t) => t.discarded && /^https?:/.test(t.url || "")).map((t) => t.url);
+  return tabs.filter((t) => t.discarded && !t.active && /^https?:/.test(t.url || "")).map((t) => t.url);
 }
 
 // Match remembered URLs against the tabs the browser restored. Returns the loaded tabs

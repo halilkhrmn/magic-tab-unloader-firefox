@@ -222,16 +222,36 @@ test("greyIcons: off by default, and tabs without a favicon are just unloaded", 
   assert.deepEqual(none.calls.discard, [2]);
 });
 
-test("tick remembers which tabs are unloaded", async () => {
+test("unloading a tab saves the unloaded set; opening or closing a tab updates it", async () => {
   const t = setup({
     settings: cfg(),
     tabs: [
       { ...baseTab, id: 1, url: "https://a.com", discarded: true, lastAccessed: Date.now() },
-      { ...baseTab, id: 2, url: "https://b.com", lastAccessed: Date.now() },
+      { ...baseTab, id: 2, url: "https://b.com", lastAccessed: 0 },
     ],
   });
   await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
+  assert.deepEqual(t.calls.discard, [2]);
+  assert.deepEqual(Array.from(t.store.local.unloadedSnapshot), ["https://a.com", "https://b.com"]);
+
+  // The user switches to b.com: it is no longer remembered as unloaded.
+  t.tabs[1].active = true;
+  await t.listeners["tabs.onActivated"]({ tabId: 2 });
   assert.deepEqual(Array.from(t.store.local.unloadedSnapshot), ["https://a.com"]);
+
+  // Closing a.com empties the set.
+  t.tabs.splice(0, 1);
+  await t.listeners["tabs.onRemoved"](1);
+  assert.deepEqual(Array.from(t.store.local.unloadedSnapshot), []);
+});
+
+test("a tick that unloads nothing does not touch the snapshot", async () => {
+  const t = setup({
+    settings: cfg(),
+    tabs: [{ ...baseTab, id: 1, url: "https://a.com", discarded: true, lastAccessed: Date.now() }],
+  });
+  await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
+  assert.equal(t.store.local.unloadedSnapshot, undefined);
 });
 
 test("after a restart, tabs that were unloaded are unloaded again and the rest are left alone", async () => {

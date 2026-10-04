@@ -82,12 +82,14 @@ async function discard(tab) {
       s.refreshedAt[tab.id] = Date.now();
     });
     await recordDiscard();
+    await saveSnapshot();
   } catch (e) {
     console.debug("discard failed", tab.id, e);
   }
 }
 
 // Remember which tabs are unloaded so they can be unloaded again after a browser restart.
+// Saved when we unload a tab and when a tab is opened or closed, not on a timer.
 // Not while a restore is still looking at the previous snapshot.
 async function saveSnapshot() {
   if ((await readState()).restore) return;
@@ -194,7 +196,6 @@ async function tick() {
     }
   });
   await updateBadge();
-  await saveSnapshot();
 }
 
 browser.runtime.onStartup.addListener(async () => {
@@ -225,6 +226,7 @@ async function clearTab(tabId) {
     delete s.refreshedAt[tabId];
   });
   await updateBadge();
+  await saveSnapshot();
 }
 
 browser.tabs.onActivated.addListener(({ tabId }) => clearTab(tabId));
