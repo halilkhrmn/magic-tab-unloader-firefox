@@ -59,6 +59,7 @@ function collect() {
     skipAudible: $("skipAudible").checked,
     skipPinned: $("skipPinned").checked,
     greyIcons: $("greyIcons").checked,
+    restoreUnloaded: $("restoreUnloaded").checked,
     refresh: { enabled: $("refreshOn").checked, intervalMin: $("refreshInterval").value, pinnedOnly: $("pinnedOnly").checked },
     notificationPattern: $("notificationPattern").value,
     profiles: [...$("profiles").children].map((f) => f.collect()),
@@ -70,6 +71,7 @@ function render() {
   $("skipAudible").checked = settings.skipAudible;
   $("skipPinned").checked = settings.skipPinned;
   $("greyIcons").checked = settings.greyIcons;
+  $("restoreUnloaded").checked = settings.restoreUnloaded;
   $("refreshOn").checked = settings.refresh.enabled;
   $("refreshInterval").value = settings.refresh.intervalMin;
   $("pinnedOnly").checked = settings.refresh.pinnedOnly;

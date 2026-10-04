@@ -2,6 +2,7 @@ const TICK_ALARM = "mtu-tick";
 const MENU_ID = "mtu-never-unload";
 const SETTLE_MS = 4000; // wait after load so SPA titles / badges can appear
 const STALE_REFRESH_MS = 2 * 60000; // give up waiting for a background refresh after this long
+const RESTORE_WINDOW_MS = 2 * 60000; // how long after startup we keep looking for restored tabs
 
 // The background page may be suspended at any time (event page), so all
 // runtime state lives in storage.session and is accessed through one queue.
@@ -86,6 +87,35 @@ async function discard(tab) {
   }
 }
 
+// Remember which tabs are unloaded so they can be unloaded again after a browser restart.
+// Not while a restore is still looking at the previous snapshot.
+async function saveSnapshot() {
+  if ((await readState()).restore) return;
+  const urls = unloadedUrls(await browser.tabs.query({}));
+  const { unloadedSnapshot } = await browser.storage.local.get("unloadedSnapshot");
+  if (JSON.stringify(unloadedSnapshot || []) !== JSON.stringify(urls)) {
+    await browser.storage.local.set({ unloadedSnapshot: urls });
+  }
+}
+
+// Called at startup and whenever the browser creates a tab while the restore is pending.
+async function tryRestore() {
+  const { restore } = await readState();
+  if (!restore) return;
+  const settings = await loadSettings();
+  const tabs = await browser.tabs.query({});
+  const { discardIds, left } = settings.restoreUnloaded
+    ? planRestore(restore.pending, tabs)
+    : { discardIds: [], left: [] };
+  for (const id of discardIds) await discard(tabs.find((t) => t.id === id));
+  const finished = left.length === 0 || Date.now() > restore.deadline;
+  await updateState((s) => {
+    if (finished) delete s.restore;
+    else s.restore = { ...restore, pending: left };
+  });
+  if (finished) await saveSnapshot();
+}
+
 async function updateBadge() {
   const { notified } = await readState();
   const n = Object.keys(notified).length;
@@ -120,6 +150,7 @@ async function finishRefresh(tabId) {
 }
 
 async function tick() {
+  await tryRestore();
   const settings = await loadSettings();
   if (settings.paused) return;
   const now = Date.now();
@@ -163,7 +194,20 @@ async function tick() {
     }
   });
   await updateBadge();
+  await saveSnapshot();
 }
+
+browser.runtime.onStartup.addListener(async () => {
+  const settings = await loadSettings();
+  const { unloadedSnapshot } = await browser.storage.local.get("unloadedSnapshot");
+  if (!settings.restoreUnloaded || !unloadedSnapshot || !unloadedSnapshot.length) return;
+  await updateState((s) => {
+    s.restore = { pending: unloadedSnapshot, deadline: Date.now() + RESTORE_WINDOW_MS };
+  });
+  await tryRestore();
+});
+
+browser.tabs.onCreated.addListener(() => tryRestore());
 
 browser.tabs.onUpdated.addListener(
   async (tabId, changeInfo) => {

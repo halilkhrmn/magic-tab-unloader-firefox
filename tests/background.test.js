@@ -7,8 +7,9 @@ const vm = require("vm");
 const MIN = 60000;
 
 // Loads shared.js + background.js into a sandbox with a fake `browser` object.
-function setup({ tabs, settings, session = {}, granted = false, runTimers = false }) {
+function setup({ tabs, settings, session = {}, granted = false, runTimers = false, snapshot }) {
   const store = { local: { settings }, session: { ...session } };
+  if (snapshot) store.local.unloadedSnapshot = snapshot;
   const calls = { discard: [], reload: [], badge: [], menus: [], script: [], grey: [] };
   const timers = [];
   const listeners = {};
@@ -36,6 +37,7 @@ function setup({ tabs, settings, session = {}, granted = false, runTimers = fals
       onUpdated: ev("tabs.onUpdated"),
       onActivated: ev("tabs.onActivated"),
       onRemoved: ev("tabs.onRemoved"),
+      onCreated: ev("tabs.onCreated"),
     },
     windows: { update: async () => {} },
     alarms: { create() {}, onAlarm: ev("alarms.onAlarm") },
@@ -47,7 +49,7 @@ function setup({ tabs, settings, session = {}, granted = false, runTimers = fals
       onClicked: ev("menus.onClicked"),
       onShown: ev("menus.onShown"),
     },
-    runtime: { onInstalled: ev("runtime.onInstalled"), onMessage: ev("runtime.onMessage"), getURL: (p) => p },
+    runtime: { onStartup: ev("runtime.onStartup"), onInstalled: ev("runtime.onInstalled"), onMessage: ev("runtime.onMessage"), getURL: (p) => p },
     permissions: { contains: async () => granted },
     scripting: {
       executeScript: async (opts) => {
@@ -218,4 +220,60 @@ test("greyIcons: off by default, and tabs without a favicon are just unloaded", 
   await none.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
   assert.deepEqual(none.calls.script, []);
   assert.deepEqual(none.calls.discard, [2]);
+});
+
+test("tick remembers which tabs are unloaded", async () => {
+  const t = setup({
+    settings: cfg(),
+    tabs: [
+      { ...baseTab, id: 1, url: "https://a.com", discarded: true, lastAccessed: Date.now() },
+      { ...baseTab, id: 2, url: "https://b.com", lastAccessed: Date.now() },
+    ],
+  });
+  await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
+  assert.deepEqual(Array.from(t.store.local.unloadedSnapshot), ["https://a.com"]);
+});
+
+test("after a restart, tabs that were unloaded are unloaded again and the rest are left alone", async () => {
+  const now = Date.now();
+  const t = setup({
+    settings: cfg(),
+    snapshot: ["https://a.com", "https://b.com"],
+    tabs: [
+      { ...baseTab, id: 1, url: "https://a.com", lastAccessed: now },
+      { ...baseTab, id: 2, url: "https://other.com", lastAccessed: now },
+    ],
+  });
+  await t.listeners["runtime.onStartup"]();
+  assert.deepEqual(t.calls.discard, [1], "only the remembered tab is unloaded");
+  assert.ok(t.store.session.mtu.restore, "still waiting for https://b.com to be restored");
+
+  // The browser restores the second remembered tab a bit later.
+  t.tabs.push({ ...baseTab, id: 3, url: "https://b.com", lastAccessed: now });
+  await t.listeners["tabs.onCreated"]();
+  assert.deepEqual(t.calls.discard, [1, 3]);
+  assert.equal(t.store.session.mtu.restore, undefined, "restore is finished");
+  assert.deepEqual(Array.from(t.store.local.unloadedSnapshot).sort(), ["https://a.com", "https://b.com"]);
+});
+
+test("the old snapshot is not overwritten while a restore is pending", async () => {
+  const t = setup({
+    settings: cfg(),
+    snapshot: ["https://a.com", "https://missing.com"],
+    tabs: [{ ...baseTab, id: 1, url: "https://a.com", lastAccessed: Date.now() }],
+  });
+  await t.listeners["runtime.onStartup"]();
+  await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
+  assert.deepEqual(Array.from(t.store.local.unloadedSnapshot), ["https://a.com", "https://missing.com"]);
+});
+
+test("restore does nothing when the option is off", async () => {
+  const t = setup({
+    settings: cfg({ restoreUnloaded: false }),
+    snapshot: ["https://a.com"],
+    tabs: [{ ...baseTab, id: 1, url: "https://a.com", lastAccessed: Date.now() }],
+  });
+  await t.listeners["runtime.onStartup"]();
+  assert.deepEqual(t.calls.discard, []);
+  assert.equal(t.store.session.mtu, undefined);
 });
