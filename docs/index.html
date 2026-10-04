@@ -39,8 +39,9 @@
   <div>
     <h1>Magic Tab Unloader</h1>
     <p class="tag">Unload idle Firefox tabs automatically, the same as right-click → Unload Tab, with rules per site.</p>
-    <a class="btn" href="https://github.com/halilkhrmn/magic-tab-unloader-firefox/releases/latest">Download</a>
-    <a class="btn alt" href="https://github.com/halilkhrmn/magic-tab-unloader-firefox">Source on GitHub</a>
+    <a class="btn" href="https://addons.mozilla.org/en-US/firefox/addon/magic-tab-unloader/">Add to Firefox</a>
+    <a class="btn alt" href="https://github.com/halilkhrmn/magic-tab-unloader-firefox/releases/latest">Download .xpi</a>
+    <a class="btn alt" href="https://github.com/halilkhrmn/magic-tab-unloader-firefox">Source</a>
   </div>
 </header>
 
@@ -57,12 +58,8 @@
 </div>
 
 <h2>Install</h2>
-<ol>
-  <li>Download the latest <code>.xpi</code> from the <a href="https://github.com/halilkhrmn/magic-tab-unloader-firefox/releases/latest">releases page</a>.</li>
-  <li>In Firefox open <code>about:addons</code>, click the gear icon and choose <strong>Install Add-on From File…</strong>.</li>
-  <li>Open the extension's settings to create your first profile.</li>
-</ol>
-<p>Unsigned builds load permanently only in Firefox Developer Edition, Nightly or ESR with <code>xpinstall.signatures.required</code> set to false. A listing on addons.mozilla.org is planned.</p>
+<p>Get it from <a href="https://addons.mozilla.org/en-US/firefox/addon/magic-tab-unloader/">Firefox Add-ons</a> and click <strong>Add to Firefox</strong>. Then open the extension's settings to create your first profile.</p>
+<p>To install a build from GitHub instead, download the <code>.xpi</code> from the <a href="https://github.com/halilkhrmn/magic-tab-unloader-firefox/releases/latest">releases page</a>, open <code>about:addons</code>, click the gear icon and choose <strong>Install Add-on From File…</strong>. Unsigned builds load permanently only in Firefox Developer Edition, Nightly or ESR with <code>xpinstall.signatures.required</code> set to false.</p>
 
 <h2>Greyed-out tabs</h2>
 <p>Firefox greys out tabs unloaded from its right-click menu, but not tabs unloaded by an extension. Tick <strong>Grey out the icons of tabs this extension unloads</strong> in the settings and the extension greys the icon itself, using the same grey, half-transparent look plus an optional small sleeping "zZ". It asks for permission to access all sites, only when you tick the box. Prefer not to grant that? Open <code>about:config</code> and set <code>browser.tabs.fadeOutUnloadedTabs</code> to <code>true</code> instead.</p>
