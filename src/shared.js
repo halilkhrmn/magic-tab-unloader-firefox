@@ -9,6 +9,7 @@ const DEFAULT_SETTINGS = {
   defaultTimeoutMin: 30, // idle minutes before a tab is unloaded (0 = never)
   skipAudible: true, // never unload tabs that are playing sound
   skipPinned: false, // never unload pinned tabs
+  restoreUnloaded: true, // after a browser restart, unload again the tabs that were unloaded before it closed
   greyIcons: false, // grey out the favicon of tabs we unload (needs the optional all-sites permission)
   // Periodically reload unloaded tabs in the background so the site can show its
   // notification dot / title counter, then unload them again.
@@ -109,6 +110,30 @@ function planTab(tab, settings, ctx) {
   return ctx.now - tab.lastAccessed >= timeoutMin * 60000 ? "discard" : null;
 }
 
+// URLs of the tabs that are currently unloaded (remembered across a browser restart).
+function unloadedUrls(tabs) {
+  return tabs.filter((t) => t.discarded && /^https?:/.test(t.url || "")).map((t) => t.url);
+}
+
+// Match remembered URLs against the tabs the browser restored. Returns the loaded tabs
+// that should be unloaded again and the URLs that have not shown up yet. Duplicate URLs
+// are matched one to one, and the active tab is never touched.
+function planRestore(pendingUrls, tabs) {
+  const used = new Set();
+  const discardIds = [];
+  const left = [];
+  for (const url of pendingUrls) {
+    const tab = tabs.find((t) => t.url === url && !used.has(t.id));
+    if (!tab) {
+      left.push(url);
+      continue;
+    }
+    used.add(tab.id);
+    if (!tab.discarded && !tab.active) discardIds.push(tab.id);
+  }
+  return { discardIds, left };
+}
+
 function isWhitelisted(settings, host) {
   const wl = settings.profiles.find((p) => p.id === WHITELIST_ID);
   return !!wl && wl.hosts.some((p) => matchHost(host, p));
@@ -175,6 +200,7 @@ function sanitizeSettings(raw) {
     skipAudible: raw.skipAudible === undefined ? d.skipAudible : !!raw.skipAudible,
     notificationPattern: pattern,
     skipPinned: !!raw.skipPinned,
+    restoreUnloaded: raw.restoreUnloaded === undefined ? d.restoreUnloaded : !!raw.restoreUnloaded,
     greyIcons: !!raw.greyIcons,
     refresh: {
       enabled: !!(raw.refresh && raw.refresh.enabled),
@@ -197,6 +223,6 @@ async function loadSettings() {
 if (typeof module !== "undefined") {
   module.exports = {
     DEFAULT_SETTINGS, WHITELIST_ID, hostOf, matchHost, toMinutes, inHours, profileMatches, findProfile,
-    hasNotification, isDiscardable, refreshRule, planTab, isWhitelisted, toggleWhitelist, sanitizeSettings,
+    hasNotification, isDiscardable, refreshRule, planTab, unloadedUrls, planRestore, isWhitelisted, toggleWhitelist, sanitizeSettings,
   };
 }

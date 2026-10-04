@@ -149,6 +149,7 @@ test("sanitizeSettings: defaults, coercion and validation", () => {
   assert.deepEqual(d.profiles, []);
   assert.equal(d.skipPinned, false);
   assert.equal(d.greyIcons, false);
+  assert.equal(d.restoreUnloaded, true);
   assert.deepEqual(d.refresh, { enabled: false, intervalMin: 15, pinnedOnly: true });
   const s = S.sanitizeSettings({
     defaultTimeoutMin: "45", refresh: { enabled: 1, intervalMin: "0" }, notifyOnFound: true, estimateMbPerTab: 99,
@@ -174,4 +175,38 @@ test("export/import round trip is stable", () => {
   const once = S.sanitizeSettings({ profiles: [{ id: "a", name: "A", hosts: ["a.com"], timeoutMin: 7 }] });
   const twice = S.sanitizeSettings(JSON.parse(JSON.stringify(once)));
   assert.deepEqual(twice, once);
+});
+
+test("unloadedUrls lists only unloaded http(s) tabs", () => {
+  const urls = S.unloadedUrls([
+    { url: "https://a.com", discarded: true },
+    { url: "https://b.com", discarded: false },
+    { url: "about:blank", discarded: true },
+    { url: "https://c.com", discarded: true },
+  ]);
+  assert.deepEqual(urls, ["https://a.com", "https://c.com"]);
+});
+
+test("planRestore unloads matching loaded tabs and keeps waiting for missing ones", () => {
+  const tabs = [
+    { id: 1, url: "https://a.com" },
+    { id: 2, url: "https://b.com", discarded: true },
+    { id: 3, url: "https://c.com" },
+  ];
+  const r = S.planRestore(["https://a.com", "https://b.com", "https://later.com"], tabs);
+  assert.deepEqual(r.discardIds, [1], "b is already unloaded, c was not remembered");
+  assert.deepEqual(r.left, ["https://later.com"]);
+});
+
+test("planRestore matches duplicate URLs one to one and never touches the active tab", () => {
+  const tabs = [
+    { id: 1, url: "https://a.com" },
+    { id: 2, url: "https://a.com" },
+    { id: 3, url: "https://b.com", active: true },
+  ];
+  const one = S.planRestore(["https://a.com"], tabs);
+  assert.deepEqual(one.discardIds, [1]);
+  const two = S.planRestore(["https://a.com", "https://a.com", "https://b.com"], tabs);
+  assert.deepEqual(two.discardIds, [1, 2]);
+  assert.deepEqual(two.left, []);
 });
