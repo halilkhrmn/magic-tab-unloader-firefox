@@ -4,7 +4,7 @@ A Firefox extension that automatically unloads (discards) idle tabs. It does the
 
 ## Install
 
-- **Firefox Add-ons**: [Magic Tab Unloader on addons.mozilla.org](https://addons.mozilla.org/en-US/firefox/addon/magic-tab-unloader/). It has been submitted and is waiting for review, so the page opens once it is approved.
+- **Firefox Add-ons** (recommended): [Magic Tab Unloader on addons.mozilla.org](https://addons.mozilla.org/en-US/firefox/addon/magic-tab-unloader/)
 - **From GitHub**: download the `.xpi` from the [latest release](https://github.com/halilkhrmn/magic-tab-unloader-firefox/releases/latest). Unsigned builds load permanently only in Firefox Developer Edition, Nightly or ESR with `xpinstall.signatures.required` set to false.
 
 ## Features
