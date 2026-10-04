@@ -150,6 +150,7 @@ test("sanitizeSettings: defaults, coercion and validation", () => {
   assert.equal(d.skipPinned, false);
   assert.equal(d.greyIcons, false);
   assert.equal(d.sleepMark, true);
+  assert.equal(d.keepNewsLoaded, false);
   assert.equal(d.restoreUnloaded, true);
   assert.deepEqual(d.refresh, { enabled: false, intervalMin: 15, pinnedOnly: true });
   const s = S.sanitizeSettings({
@@ -211,4 +212,13 @@ test("planRestore matches duplicate URLs one to one and never touches the active
   const two = S.planRestore(["https://a.com", "https://a.com", "https://b.com"], tabs);
   assert.deepEqual(two.discardIds, [1, 2]);
   assert.deepEqual(two.left, []);
+});
+
+test("appendLog puts the newest entry first and caps the length", () => {
+  let log;
+  for (let i = 0; i < 40; i++) log = S.appendLog(log, { n: i });
+  assert.equal(log.length, 30);
+  assert.equal(log[0].n, 39);
+  assert.equal(log[29].n, 10);
+  assert.deepEqual(S.appendLog(undefined, { n: 1 }), [{ n: 1 }]);
 });

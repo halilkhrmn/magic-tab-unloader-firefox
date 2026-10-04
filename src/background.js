@@ -132,6 +132,15 @@ async function flagNotification(tab) {
   await updateBadge();
 }
 
+// A short log of what each background refresh found, shown in the settings page.
+function logRefresh(tab, news, kept) {
+  return locked(async () => {
+    const { refreshLog } = await browser.storage.local.get("refreshLog");
+    const entry = { t: Date.now(), host: hostOf(tab.url) || "", title: tab.title || "", attention: !!tab.attention, news, kept };
+    await browser.storage.local.set({ refreshLog: appendLog(refreshLog, entry) });
+  });
+}
+
 // After a background refresh: flag the tab if it has news, then unload it again.
 async function finishRefresh(tabId) {
   const wasRefreshing = await updateState((s) => {
@@ -148,8 +157,11 @@ async function finishRefresh(tabId) {
     return; // tab was closed
   }
   if (tab.active) return; // the user opened it meanwhile
-  if (hasNotification(tab, settings.notificationPattern)) await flagNotification(tab);
-  if (isDiscardable(tab, settings)) await discard(tab);
+  const news = hasNotification(tab, settings.notificationPattern);
+  if (news) await flagNotification(tab);
+  const keep = news && settings.keepNewsLoaded;
+  await logRefresh(tab, news, keep);
+  if (!keep && isDiscardable(tab, settings)) await discard(tab);
 }
 
 async function tick() {
@@ -173,6 +185,7 @@ async function tick() {
       });
       continue;
     }
+    if (settings.keepNewsLoaded && !tab.discarded && state.notified[tab.id]) continue; // kept loaded on purpose
     const action = planTab(tab, settings, { now, refreshedAt: state.refreshedAt[tab.id] });
     if (action === "discard") {
       await discard(tab);
