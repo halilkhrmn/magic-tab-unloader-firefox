@@ -12,6 +12,10 @@ A Firefox extension that automatically unloads (discards) idle tabs. It does the
 - **Popup** for the simple settings (pause, idle time, pinned tabs, auto-refresh) and a link to the full settings page.
 - **Export / import** of settings as JSON.
 
+## Greyed-out tabs
+
+Firefox greys out tabs unloaded from its own right-click menu, but tabs unloaded by an extension are only greyed out when `browser.tabs.fadeOutUnloadedTabs` is `true` in `about:config`. Extensions cannot set it. The tabs are really unloaded either way; only the greying differs.
+
 ## Development
 
 ```sh

@@ -105,6 +105,14 @@ function say(msg) {
     a.click();
     URL.revokeObjectURL(a.href);
   };
+  $("copy-pref").onclick = async () => {
+    try {
+      await navigator.clipboard.writeText("browser.tabs.fadeOutUnloadedTabs");
+      $("copy-status").textContent = "Copied";
+    } catch {
+      $("copy-status").textContent = "Copy failed, select the name above instead";
+    }
+  };
   $("import").onclick = () => $("file").click();
   $("file").onchange = async () => {
     try {
