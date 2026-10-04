@@ -9,10 +9,6 @@
   h2 { font-size: 1.15rem; margin: 24px 0 8px; }
   .days label { margin-right: 10px; }
   .sub { margin-left: 22px; }
-  .scroll { overflow-x: auto; }
-  table { border-collapse: collapse; width: 100%; font-size: .9em; }
-  th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); }
-  td.title { max-width: 18em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #status { margin-left: 8px; color: var(--accent); font-weight: 600; }
 </style>
 <header class="brand"><img src="../icons/icon-96.png" alt=""><h1>Magic Tab Unloader</h1></header>
@@ -23,28 +19,12 @@
   <label><input type="checkbox" id="skipAudible"> Never unload tabs playing audio</label>
   <label><input type="checkbox" id="restoreUnloaded"> After a browser restart, unload again the tabs that were unloaded before</label>
 </fieldset>
-<fieldset class="card"><legend>Auto-refresh</legend>
-  <p class="muted">Unloaded tabs are reloaded in the background so sites can show their notification dot or title counter, then unloaded again. A tab whose title matches the pattern below, or that Firefox marks with its attention dot, is counted on the toolbar badge.</p>
-  <label><input type="checkbox" id="refreshOn"> Auto-refresh unloaded tabs</label>
-  <div class="row sub"><label for="refreshInterval">Every</label>
-    <input type="number" id="refreshInterval" min="1"> <span class="muted">minutes</span>
-    <label><input type="checkbox" id="pinnedOnly"> Pinned tabs only</label></div>
-  <label for="notificationPattern">Notification title pattern (regular expression)</label>
-  <input type="text" id="notificationPattern">
-</fieldset>
 <fieldset class="card"><legend>Tab appearance</legend>
   <label><input type="checkbox" id="greyIcons"> Grey out the icons of tabs this extension unloads</label>
   <label class="sub"><input type="checkbox" id="sleepMark"> Add a sleeping "zZ" to the icon</label>
   <p class="muted sub">Firefox greys out tabs unloaded from its own right-click menu, but not tabs unloaded by an extension. This option swaps the page icon for a grey, half-transparent copy just before the tab is unloaded. It needs permission to access all sites (Firefox asks when you tick the box); the icon is only read and redrawn on your computer.</p>
   <p class="muted">Alternatively, open <code>about:config</code> and set <code>browser.tabs.fadeOutUnloadedTabs</code> to <code>true</code> to let Firefox grey out every unloaded tab. Extensions cannot change that setting.</p>
   <button id="copy-pref" type="button">Copy setting name</button> <span id="copy-status" role="status"></span>
-</fieldset>
-<fieldset class="card"><legend>Refresh log</legend>
-  <p class="muted">What the last background refreshes found. "Attention" is Firefox's own dot for the tab, "News" means the dot or the title pattern matched. The log is kept only in this browser, holds the last 30 refreshes and includes page titles.</p>
-  <label><input type="checkbox" id="keepNewsLoaded"> Keep a tab with news loaded after a refresh, so Firefox's dot stays (default: unload it again)</label>
-  <div class="scroll"><table id="log-table"><thead><tr><th>Time</th><th>Site</th><th>Attention</th><th>News</th><th>Kept</th><th>Title</th></tr></thead><tbody id="log-body"></tbody></table></div>
-  <p id="log-empty" class="muted">No refreshes yet. Turn on auto-refresh and wait for the interval.</p>
-  <button id="log-reload" type="button">Reload log</button> <button id="log-clear" type="button">Clear log</button>
 </fieldset>
 <h2>Profiles</h2>
 <p>The first matching profile wins. Hosts match the domain and its subdomains (<code>github.com</code>, <code>*.google.com</code>); leave empty to match any site. A profile with active hours only applies inside that window.</p>
@@ -61,10 +41,6 @@
       <label>Pinned <select data-k="pinned"><option>any</option><option>only</option><option>not</option></select></label>
       <label>Idle minutes (empty = default, 0 = never) <input type="number" data-k="timeoutMin" min="0"></label>
       <label><input type="checkbox" data-k="never"> Never unload</label>
-    </div>
-    <div class="row">
-      <label><input type="checkbox" data-k="refreshOn"> Periodically refresh unloaded tabs</label>
-      <label>every <input type="number" data-k="interval" min="1"> min</label>
     </div>
     <div class="row">
       <label><input type="checkbox" data-k="hoursOn"> Only during</label>

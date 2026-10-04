@@ -10,13 +10,8 @@ const DEFAULT_SETTINGS = {
   skipAudible: true, // never unload tabs that are playing sound
   skipPinned: false, // never unload pinned tabs
   restoreUnloaded: true, // after a browser restart, unload again the tabs that were unloaded before it closed
-  keepNewsLoaded: false, // after a background refresh, leave a tab with news loaded instead of unloading it again
   sleepMark: true, // draw a sleeping "zZ" on the greyed-out icon
   greyIcons: false, // grey out the favicon of tabs we unload (needs the optional all-sites permission)
-  // Periodically reload unloaded tabs in the background so the site can show its
-  // notification dot / title counter, then unload them again.
-  refresh: { enabled: false, intervalMin: 15, pinnedOnly: true },
-  notificationPattern: "^\\(\\d+\\+?\\)|^\\[\\d+\\]|^\\d+ new", // titles like "(3) Inbox"
   // First matching profile wins.
   profiles: [],
 };
@@ -71,15 +66,6 @@ function findProfile(settings, tab, date = new Date()) {
   return settings.profiles.find((p) => profileMatches(p, tab, date)) || null;
 }
 
-function hasNotification(tab, pattern) {
-  if (tab.attention) return true; // Firefox's blue "attention" dot
-  try {
-    return new RegExp(pattern).test(tab.title || "");
-  } catch {
-    return false;
-  }
-}
-
 function isDiscardable(tab, settings) {
   if (tab.active || tab.discarded) return false;
   if (settings.skipPinned && tab.pinned) return false;
@@ -87,25 +73,13 @@ function isDiscardable(tab, settings) {
   return /^https?:/.test(tab.url || "");
 }
 
-// The refresh rule for a tab: the profile's own rule if enabled, else the global one.
-function refreshRule(settings, profile, tab) {
-  if (profile && profile.refresh && profile.refresh.enabled) return profile.refresh;
-  const g = settings.refresh;
-  return g.enabled && (!g.pinnedOnly || tab.pinned) ? g : null;
-}
-
-// Decide what to do with a tab right now: "discard", "refresh" or null.
-// ctx: { now: ms, refreshedAt: ms | undefined }
+// Decide what to do with a tab right now: "discard" or null.
+// ctx: { now: ms }
 function planTab(tab, settings, ctx) {
-  if (tab.active) return null;
+  if (tab.active || tab.discarded) return null;
   if (settings.skipPinned && tab.pinned) return null;
   const profile = findProfile(settings, tab, new Date(ctx.now));
   if (profile && profile.never) return null;
-  if (tab.discarded) {
-    const r = refreshRule(settings, profile, tab);
-    if (r && ctx.now - (ctx.refreshedAt ?? 0) >= r.intervalMin * 60000) return "refresh";
-    return null;
-  }
   if (!isDiscardable(tab, settings)) return null;
   const timeoutMin = profile && profile.timeoutMin != null ? profile.timeoutMin : settings.defaultTimeoutMin;
   if (!timeoutMin) return null;
@@ -137,13 +111,6 @@ function planRestore(pendingUrls, tabs) {
   return { discardIds, left };
 }
 
-const REFRESH_LOG_MAX = 30;
-
-// Newest first, capped.
-function appendLog(log, entry, max = REFRESH_LOG_MAX) {
-  return [entry, ...(Array.isArray(log) ? log : [])].slice(0, max);
-}
-
 function isWhitelisted(settings, host) {
   const wl = settings.profiles.find((p) => p.id === WHITELIST_ID);
   return !!wl && wl.hosts.some((p) => matchHost(host, p));
@@ -172,7 +139,6 @@ function num(v, fallback, min = 0) {
 
 function sanitizeProfile(p) {
   if (!p || typeof p !== "object") return null;
-  const refresh = p.refresh || {};
   const hours = p.hours || {};
   return {
     id: typeof p.id === "string" && p.id ? p.id : "p" + Math.random().toString(36).slice(2, 10),
@@ -181,7 +147,6 @@ function sanitizeProfile(p) {
     pinned: PINNED_VALUES.includes(p.pinned) ? p.pinned : "any",
     never: !!p.never,
     timeoutMin: num(p.timeoutMin, null),
-    refresh: { enabled: !!refresh.enabled, intervalMin: Math.max(1, num(refresh.intervalMin, 15)) },
     hours: {
       enabled: !!hours.enabled,
       from: toMinutes(hours.from) !== null ? hours.from : "09:00",
@@ -197,28 +162,15 @@ function sanitizeProfile(p) {
 function sanitizeSettings(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Settings must be a JSON object");
   const d = DEFAULT_SETTINGS;
-  const pattern = typeof raw.notificationPattern === "string" ? raw.notificationPattern : d.notificationPattern;
-  try {
-    new RegExp(pattern);
-  } catch {
-    throw new Error("Invalid notification regex");
-  }
   const profiles = Array.isArray(raw.profiles) ? raw.profiles : d.profiles;
   return {
     paused: !!raw.paused,
     defaultTimeoutMin: num(raw.defaultTimeoutMin, d.defaultTimeoutMin),
     skipAudible: raw.skipAudible === undefined ? d.skipAudible : !!raw.skipAudible,
-    notificationPattern: pattern,
     skipPinned: !!raw.skipPinned,
     restoreUnloaded: raw.restoreUnloaded === undefined ? d.restoreUnloaded : !!raw.restoreUnloaded,
     greyIcons: !!raw.greyIcons,
-    keepNewsLoaded: !!raw.keepNewsLoaded,
     sleepMark: raw.sleepMark === undefined ? d.sleepMark : !!raw.sleepMark,
-    refresh: {
-      enabled: !!(raw.refresh && raw.refresh.enabled),
-      intervalMin: Math.max(1, num(raw.refresh && raw.refresh.intervalMin, d.refresh.intervalMin)),
-      pinnedOnly: !raw.refresh || raw.refresh.pinnedOnly === undefined ? d.refresh.pinnedOnly : !!raw.refresh.pinnedOnly,
-    },
     profiles: profiles.map(sanitizeProfile).filter(Boolean),
   };
 }
@@ -235,6 +187,6 @@ async function loadSettings() {
 if (typeof module !== "undefined") {
   module.exports = {
     DEFAULT_SETTINGS, WHITELIST_ID, hostOf, matchHost, toMinutes, inHours, profileMatches, findProfile,
-    hasNotification, isDiscardable, refreshRule, planTab, unloadedUrls, planRestore, appendLog, isWhitelisted, toggleWhitelist, sanitizeSettings,
+    isDiscardable, planTab, unloadedUrls, planRestore, isWhitelisted, toggleWhitelist, sanitizeSettings,
   };
 }

@@ -10,13 +10,14 @@ const MIN = 60000;
 function setup({ tabs, settings, session = {}, granted = false, runTimers = false, snapshot }) {
   const store = { local: { settings }, session: { ...session } };
   if (snapshot) store.local.unloadedSnapshot = snapshot;
-  const calls = { discard: [], reload: [], badge: [], menus: [], script: [], grey: [], greyZ: [] };
+  const calls = { discard: [], menus: [], script: [], grey: [], greyZ: [] };
   const timers = [];
   const listeners = {};
   const ev = (name) => ({ addListener: (fn) => (listeners[name] = fn) });
   const area = (kind) => ({
     get: async (key) => (key in store[kind] ? { [key]: JSON.parse(JSON.stringify(store[kind][key])) } : {}),
     set: async (obj) => Object.assign(store[kind], JSON.parse(JSON.stringify(obj))),
+    remove: async (key) => delete store[kind][key],
   });
   const browser = {
     storage: { local: area("local"), session: area("session") },
@@ -32,7 +33,6 @@ function setup({ tabs, settings, session = {}, granted = false, runTimers = fals
         const t = tabs.find((x) => x.id === id);
         if (t && !t.active) t.discarded = true;
       },
-      reload: async (id) => calls.reload.push(id),
       update: async (id) => tabs.find((t) => t.id === id),
       onUpdated: ev("tabs.onUpdated"),
       onActivated: ev("tabs.onActivated"),
@@ -41,7 +41,7 @@ function setup({ tabs, settings, session = {}, granted = false, runTimers = fals
     },
     windows: { update: async () => {} },
     alarms: { create() {}, onAlarm: ev("alarms.onAlarm") },
-    action: { setBadgeText: async ({ text }) => calls.badge.push(text) },
+    action: { setBadgeText: async () => {} },
     menus: {
       create: (o) => calls.menus.push(o),
       update: async () => {},
@@ -99,56 +99,6 @@ test("tick does nothing while paused", async () => {
   assert.deepEqual(t.calls.discard, []);
 });
 
-test("refresh cycle without news: reload, then unload again silently", async () => {
-  const t = setup({
-    settings: cfg({ profiles: [{ id: "p", pinned: "only", refresh: { enabled: true, intervalMin: 15 } }] }),
-    tabs: [{ ...baseTab, id: 7, pinned: true, discarded: true, lastAccessed: 0 }],
-    session: { mtu: { refreshedAt: { 7: Date.now() - 20 * MIN } } },
-  });
-  await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
-  assert.deepEqual(t.calls.reload, [7]);
-
-  t.tabs[0].discarded = false; // reload loaded the tab
-  await t.listeners["tabs.onUpdated"](7, { status: "complete" });
-  assert.equal(t.timers.length, 1, "waits for the page to settle");
-  await t.timers[0]();
-  assert.deepEqual(t.calls.discard, [7]);
-  assert.equal(t.calls.badge.at(-1), "", "no badge without news");
-});
-
-test("refresh cycle with news: flags it on the badge and unloads again", async () => {
-  const t = setup({
-    settings: cfg({ profiles: [{ id: "p", pinned: "only", refresh: { enabled: true, intervalMin: 15 } }] }),
-    tabs: [{ ...baseTab, id: 7, pinned: true, discarded: true, lastAccessed: 0 }],
-    session: { mtu: { refreshedAt: { 7: Date.now() - 20 * MIN } } },
-  });
-  await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
-  t.tabs[0].discarded = false;
-  t.tabs[0].title = "(3) Inbox";
-  await t.listeners["tabs.onUpdated"](7, { status: "complete" });
-  await t.timers[0]();
-
-  assert.deepEqual(t.calls.discard, [7], "unloaded again");
-  assert.equal(t.calls.badge.at(-1), "1");
-
-  // Activating the tab clears the flag and the badge.
-  await t.listeners["tabs.onActivated"]({ tabId: 7 });
-  assert.equal(t.calls.badge.at(-1), "");
-});
-
-test("global auto-refresh from the popup settings reloads unloaded pinned tabs", async () => {
-  const t = setup({
-    settings: cfg({ refresh: { enabled: true, intervalMin: 10 } }),
-    tabs: [
-      { ...baseTab, id: 1, pinned: true, discarded: true, lastAccessed: 0 },
-      { ...baseTab, id: 2, discarded: true, lastAccessed: 0 },
-    ],
-    session: { mtu: { refreshedAt: { 1: 0, 2: 0 } } },
-  });
-  await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
-  assert.deepEqual(t.calls.reload, [1]);
-});
-
 test("pinned tabs are left alone when skipPinned is on", async () => {
   const t = setup({
     settings: cfg({ skipPinned: true }),
@@ -156,16 +106,6 @@ test("pinned tabs are left alone when skipPinned is on", async () => {
   });
   await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
   assert.deepEqual(t.calls.discard, [2]);
-});
-
-test("a stale refresh is finished by the next tick", async () => {
-  const t = setup({
-    settings: cfg(),
-    tabs: [{ ...baseTab, id: 9, lastAccessed: Date.now() }],
-    session: { mtu: { refreshing: { 9: Date.now() - 5 * MIN } } },
-  });
-  await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
-  assert.deepEqual(t.calls.discard, [9]);
 });
 
 test("context menu toggles the site in the never-unload profile", async () => {
@@ -314,47 +254,11 @@ test("greyIcons: the sleeping zZ follows the sleepMark setting (on by default)",
   assert.deepEqual(await run(cfg({ greyIcons: true, sleepMark: false })), [false]);
 });
 
-test("a refresh is written to the refresh log", async () => {
-  const t = setup({
-    settings: cfg({ refresh: { enabled: true, intervalMin: 10, pinnedOnly: false } }),
-    tabs: [{ ...baseTab, id: 7, url: "https://mail.example.com/x", discarded: true, lastAccessed: 0 }],
-    session: { mtu: { refreshedAt: { 7: 0 } } },
-  });
-  await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
-  t.tabs[0].discarded = false;
-  t.tabs[0].title = "(3) Inbox";
-  await t.listeners["tabs.onUpdated"](7, { status: "complete" });
-  await t.timers[0]();
-  const [entry] = Array.from(t.store.local.refreshLog);
-  assert.equal(entry.host, "mail.example.com");
-  assert.equal(entry.title, "(3) Inbox");
-  assert.equal(entry.news, true);
-  assert.equal(entry.attention, false);
-  assert.equal(entry.kept, false);
-});
 
-test("keepNewsLoaded: a tab with news stays loaded and later ticks leave it alone", async () => {
-  const t = setup({
-    settings: cfg({ keepNewsLoaded: true, refresh: { enabled: true, intervalMin: 10, pinnedOnly: false } }),
-    tabs: [{ ...baseTab, id: 7, discarded: true, lastAccessed: 0 }],
-    session: { mtu: { refreshedAt: { 7: 0 } } },
-  });
-  await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
-  t.tabs[0].discarded = false;
-  t.tabs[0].attention = true; // Firefox's own dot
-  await t.listeners["tabs.onUpdated"](7, { status: "complete" });
-  await t.timers[0]();
-  assert.deepEqual(t.calls.discard, [], "kept loaded");
-  assert.equal(t.store.local.refreshLog[0].kept, true);
-  assert.equal(t.store.local.refreshLog[0].attention, true);
-
-  // The tab is long idle, but it was kept on purpose.
-  await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
-  assert.deepEqual(t.calls.discard, []);
-
-  // Once the user has looked at it, it is a normal idle tab again.
-  await t.listeners["tabs.onActivated"]({ tabId: 7 });
-  t.tabs[0].active = false;
-  await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
-  assert.deepEqual(t.calls.discard, [7]);
+test("installing or updating removes the data left by the old auto-refresh feature", async () => {
+  const t = setup({ settings: cfg(), tabs: [] });
+  t.store.local.refreshLog = [{ host: "mail.example.com", title: "(3) Inbox" }];
+  t.listeners["runtime.onInstalled"]();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(t.store.local.refreshLog, undefined);
 });

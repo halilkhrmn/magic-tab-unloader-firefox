@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Magic Tab Unloader – Auto-unload idle tabs in Firefox</title>
-<meta name="description" content="Firefox extension that automatically unloads idle tabs, with per-site profiles, schedules and notification-aware refresh for pinned tabs.">
+<meta name="description" content="Firefox extension that automatically unloads idle tabs, with per-site profiles, schedules and greyed-out tab icons.">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <style>
   :root{--bg:#f7f6fc;--fg:#1d1b3a;--muted:#5f5c80;--card:#fff;--line:#e4e2f1;--accent:#5a49e8;--accent-fg:#fff;--gold:#d99a00}
@@ -48,11 +48,10 @@
 <div class="grid">
   <div class="card"><h3>Automatic unload</h3><p>Tabs that sit idle past a time limit are unloaded. They stay in your tab bar and reload when you click them. The active tab and tabs playing audio are never touched.</p></div>
   <div class="card"><h3>Profiles per site</h3><p>Match by hostname and pinned state. Give <code>docs.example.com</code> two hours, a chat tab five minutes, and your bank "never".</p></div>
-  <div class="card"><h3>Auto-refresh for notification dots</h3><p>Unloaded tabs are reloaded in the background every few minutes you choose, so sites can show their notification dot or title counter, then unloaded again. Tabs with news are counted on the toolbar badge.</p></div>
   <div class="card"><h3>Active hours</h3><p>Apply a profile only on weekdays, during work hours, or overnight. Overnight windows such as 22:00–06:00 work.</p></div>
   <div class="card"><h3>Remembers across restarts</h3><p>The extension remembers which tabs were unloaded and unloads them again after Firefox restarts. Every other tab is left to Firefox.</p></div>
   <div class="card"><h3>Right-click whitelist</h3><p>"Never unload this site" on any page or tab. Choose it again to undo.</p></div>
-  <div class="card"><h3>Simple popup</h3><p>Pause, idle time, "never unload pinned tabs" and auto-refresh are one click away in the toolbar popup. Everything else is in the settings page.</p></div>
+  <div class="card"><h3>Simple popup</h3><p>Pause, idle time and "never unload pinned tabs" are one click away in the toolbar popup. Everything else is in the settings page.</p></div>
   <div class="card"><h3>Backup</h3><p>Export your profiles to a JSON file and import them on another computer.</p></div>
   <div class="card"><h3>Private by design</h3><p>No accounts, no analytics and no network requests. Settings stay in your browser.</p></div>
 </div>

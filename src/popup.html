@@ -30,16 +30,6 @@
   <label class="inline"><input type="checkbox" id="skipPinned"> Never unload pinned tabs</label>
 </div>
 
-<div class="card">
-  <label class="inline"><input type="checkbox" id="refreshOn"> Auto-refresh unloaded tabs</label>
-  <div class="sub muted"><small>Reloads them in the background so sites can show their notification dot, then unloads them again.</small></div>
-  <div class="row sub">
-    <label for="refreshInterval">Every</label>
-    <input type="number" id="refreshInterval" min="1"> <span class="muted">min</span>
-  </div>
-  <label class="inline sub"><input type="checkbox" id="pinnedOnly"> Pinned tabs only</label>
-</div>
-
 <div class="stats muted"><small><b id="now-count">0</b> unloaded now</small><small>Today <b id="today">0</b> · Total <b id="total">0</b></small></div>
 <div class="actions">
   <button id="now" class="primary">Unload idle tabs now</button>

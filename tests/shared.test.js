@@ -53,16 +53,6 @@ test("findProfile: first match wins, respects pinned and hours", () => {
   assert.equal(S.findProfile(s, tab({ url: "https://other.org" }), at(12)), null);
 });
 
-test("hasNotification: title pattern and attention flag", () => {
-  const p = S.DEFAULT_SETTINGS.notificationPattern;
-  assert.ok(S.hasNotification({ title: "(3) Inbox" }, p));
-  assert.ok(S.hasNotification({ title: "[12] Chat" }, p));
-  assert.ok(S.hasNotification({ title: "5 new messages" }, p));
-  assert.ok(S.hasNotification({ title: "Inbox", attention: true }, p));
-  assert.ok(!S.hasNotification({ title: "Inbox (draft)" }, p));
-  assert.ok(!S.hasNotification({ title: "x" }, "(["), "invalid regex must not throw");
-});
-
 test("planTab: discards idle tabs after the timeout", () => {
   const s = settings();
   const now = 100 * MIN;
@@ -90,43 +80,10 @@ test("planTab: profile timeout overrides the default; 0 means never", () => {
   assert.equal(S.planTab(tab({ ...idle10, url: "https://c.com" }), s, { now }), null); // default 30
 });
 
-test("planTab: refresh only for discarded tabs whose interval elapsed", () => {
-  const s = settings({ profiles: [{ id: "p", pinned: "only", refresh: { enabled: true, intervalMin: 15 } }] });
-  const now = 100 * MIN;
-  const d = tab({ pinned: true, discarded: true });
-  assert.equal(S.planTab(d, s, { now, refreshedAt: now - 16 * MIN }), "refresh");
-  assert.equal(S.planTab(d, s, { now, refreshedAt: now - 5 * MIN }), null);
-  assert.equal(S.planTab(tab({ discarded: true }), s, { now, refreshedAt: 0 }), null, "unpinned: no profile");
-});
-
-test("planTab: global refresh applies to unloaded tabs, pinned-only by default", () => {
-  const s = settings({ refresh: { enabled: true, intervalMin: 10 } });
-  const now = 100 * MIN;
-  const ctx = { now, refreshedAt: now - 11 * MIN };
-  assert.equal(S.planTab(tab({ pinned: true, discarded: true }), s, ctx), "refresh");
-  assert.equal(S.planTab(tab({ discarded: true }), s, ctx), null, "unpinned tabs are skipped");
-  const all = settings({ refresh: { enabled: true, intervalMin: 10, pinnedOnly: false } });
-  assert.equal(S.planTab(tab({ discarded: true }), all, ctx), "refresh");
-  assert.equal(S.planTab(tab({ pinned: true, discarded: true }), s, { now, refreshedAt: now - 2 * MIN }), null);
-  assert.equal(S.planTab(tab({ pinned: true, discarded: true }), settings(), ctx), null, "off by default");
-});
-
-test("planTab: a profile's own refresh rule overrides the global one", () => {
-  const s = settings({
-    refresh: { enabled: true, intervalMin: 60, pinnedOnly: false },
-    profiles: [{ id: "chat", hosts: ["chat.com"], refresh: { enabled: true, intervalMin: 5 } }],
-  });
-  const now = 100 * MIN;
-  const chat = tab({ url: "https://chat.com", discarded: true });
-  assert.equal(S.planTab(chat, s, { now, refreshedAt: now - 6 * MIN }), "refresh");
-  assert.equal(S.planTab(tab({ discarded: true }), s, { now, refreshedAt: now - 6 * MIN }), null);
-});
-
-test("skipPinned: pinned tabs are never unloaded or refreshed", () => {
-  const s = settings({ skipPinned: true, refresh: { enabled: true, intervalMin: 1 } });
+test("skipPinned: pinned tabs are never unloaded", () => {
+  const s = settings({ skipPinned: true });
   const now = 1000 * MIN;
   assert.equal(S.planTab(tab({ pinned: true, lastAccessed: 0 }), s, { now }), null);
-  assert.equal(S.planTab(tab({ pinned: true, discarded: true }), s, { now, refreshedAt: 0 }), null);
   assert.equal(S.planTab(tab({ lastAccessed: 0 }), s, { now }), "discard", "other tabs still unload");
 });
 
@@ -150,27 +107,27 @@ test("sanitizeSettings: defaults, coercion and validation", () => {
   assert.equal(d.skipPinned, false);
   assert.equal(d.greyIcons, false);
   assert.equal(d.sleepMark, true);
-  assert.equal(d.keepNewsLoaded, false);
   assert.equal(d.restoreUnloaded, true);
-  assert.deepEqual(d.refresh, { enabled: false, intervalMin: 15, pinnedOnly: true });
   const s = S.sanitizeSettings({
-    defaultTimeoutMin: "45", refresh: { enabled: 1, intervalMin: "0" }, notifyOnFound: true, estimateMbPerTab: 99,
-    profiles: [null, 5, { name: "A", hosts: [" Foo.com ", ""], pinned: "weird", timeoutMin: "", refresh: { enabled: 1, intervalMin: 0 }, hours: { from: "99:99", days: [1, 9, "x"] } }],
+    defaultTimeoutMin: "45", notifyOnFound: true, estimateMbPerTab: 99,
+    // options of the removed auto-refresh feature, as found in settings saved by older versions
+    refresh: { enabled: true, intervalMin: 5 }, keepNewsLoaded: true, notificationPattern: "([",
+    profiles: [null, 5, { name: "A", hosts: [" Foo.com ", ""], pinned: "weird", timeoutMin: "", refresh: { enabled: true, intervalMin: 5 }, hours: { from: "99:99", days: [1, 9, "x"] } }],
   });
   assert.equal(s.defaultTimeoutMin, 45);
-  assert.deepEqual(s.refresh, { enabled: true, intervalMin: 1, pinnedOnly: true });
-  assert.ok(!("notifyOnFound" in s) && !("estimateMbPerTab" in s), "removed options are dropped");
+  for (const key of ["notifyOnFound", "estimateMbPerTab", "refresh", "keepNewsLoaded", "notificationPattern"]) {
+    assert.ok(!(key in s), `removed option ${key} is dropped`);
+  }
   assert.equal(s.profiles.length, 1);
   const p = s.profiles[0];
   assert.deepEqual(p.hosts, ["foo.com"]);
   assert.equal(p.pinned, "any");
   assert.equal(p.timeoutMin, null);
-  assert.equal(p.refresh.intervalMin, 1);
+  assert.ok(!("refresh" in p), "per-profile refresh rule is dropped");
   assert.equal(p.hours.from, "09:00");
   assert.deepEqual(p.hours.days, [1]);
   assert.throws(() => S.sanitizeSettings("nope"));
   assert.throws(() => S.sanitizeSettings([]));
-  assert.throws(() => S.sanitizeSettings({ notificationPattern: "([" }), /regex/);
 });
 
 test("export/import round trip is stable", () => {
@@ -214,11 +171,3 @@ test("planRestore matches duplicate URLs one to one and never touches the active
   assert.deepEqual(two.left, []);
 });
 
-test("appendLog puts the newest entry first and caps the length", () => {
-  let log;
-  for (let i = 0; i < 40; i++) log = S.appendLog(log, { n: i });
-  assert.equal(log.length, 30);
-  assert.equal(log[0].n, 39);
-  assert.equal(log[29].n, 10);
-  assert.deepEqual(S.appendLog(undefined, { n: 1 }), [{ n: 1 }]);
-});
