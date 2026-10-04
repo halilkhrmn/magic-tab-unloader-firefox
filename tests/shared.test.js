@@ -148,6 +148,7 @@ test("sanitizeSettings: defaults, coercion and validation", () => {
   assert.equal(d.defaultTimeoutMin, 30);
   assert.deepEqual(d.profiles, []);
   assert.equal(d.skipPinned, false);
+  assert.equal(d.greyIcons, false);
   assert.deepEqual(d.refresh, { enabled: false, intervalMin: 15, pinnedOnly: true });
   const s = S.sanitizeSettings({
     defaultTimeoutMin: "45", refresh: { enabled: 1, intervalMin: "0" }, notifyOnFound: true, estimateMbPerTab: 99,

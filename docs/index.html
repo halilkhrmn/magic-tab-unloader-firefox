@@ -65,7 +65,7 @@
 <p>Unsigned builds load permanently only in Firefox Developer Edition, Nightly or ESR with <code>xpinstall.signatures.required</code> set to false. A listing on addons.mozilla.org is planned.</p>
 
 <h2>Greyed-out tabs</h2>
-<p>Firefox greys out tabs unloaded from its right-click menu, but only greys out tabs unloaded by an extension when you turn it on. Open <code>about:config</code> and set <code>browser.tabs.fadeOutUnloadedTabs</code> to <code>true</code>. Extensions are not allowed to change this setting.</p>
+<p>Firefox greys out tabs unloaded from its right-click menu, but not tabs unloaded by an extension. Tick <strong>Grey out the icons of tabs this extension unloads</strong> in the settings and the extension greys the icon itself, using the same grey, half-transparent look. It asks for permission to access all sites, only when you tick the box. Prefer not to grant that? Open <code>about:config</code> and set <code>browser.tabs.fadeOutUnloadedTabs</code> to <code>true</code> instead.</p>
 
 <h2>Permissions</h2>
 <div class="scroll"><table>
@@ -73,6 +73,8 @@
   <tr><td><code>tabs</code></td><td>Read tab URLs, titles and last-used time, and unload tabs.</td></tr>
   <tr><td><code>alarms</code></td><td>Run the once-a-minute check.</td></tr>
   <tr><td><code>storage</code></td><td>Save your settings and unload statistics locally.</td></tr>
+  <tr><td><code>scripting</code></td><td>Swap a tab's icon for a grey copy right before it is unloaded. Only does anything if you grant the optional permission below.</td></tr>
+  <tr><td>Access to all sites (optional)</td><td>Asked for only when you tick "Grey out the icons". Used to read a tab's icon and redraw it in grey. Nothing is sent anywhere.</td></tr>
   <tr><td><code>menus</code></td><td>Add the "Never unload this site" right-click item.</td></tr>
 </table></div>
 

@@ -16,6 +16,8 @@ A Firefox extension that automatically unloads (discards) idle tabs. It does the
 
 Firefox greys out tabs unloaded from its own right-click menu, but tabs unloaded by an extension are only greyed out when `browser.tabs.fadeOutUnloadedTabs` is `true` in `about:config`. Extensions cannot set it. The tabs are really unloaded either way; only the greying differs.
 
+As an alternative the extension can do it itself: **Settings → Tab appearance → Grey out the icons of tabs this extension unloads**. Just before a tab is unloaded, its favicon is replaced by a grey, half-transparent copy (the same look Firefox uses). This needs the optional "access all sites" permission, which Firefox asks for when the box is ticked, and is removed again when it is unticked. The icon is fetched, drawn on a canvas and set on the page locally; nothing leaves the browser.
+
 ## Development
 
 ```sh

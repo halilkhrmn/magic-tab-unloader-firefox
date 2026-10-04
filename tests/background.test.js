@@ -7,9 +7,9 @@ const vm = require("vm");
 const MIN = 60000;
 
 // Loads shared.js + background.js into a sandbox with a fake `browser` object.
-function setup({ tabs, settings, session = {} }) {
+function setup({ tabs, settings, session = {}, granted = false, runTimers = false }) {
   const store = { local: { settings }, session: { ...session } };
-  const calls = { discard: [], reload: [], badge: [], menus: [] };
+  const calls = { discard: [], reload: [], badge: [], menus: [], script: [], grey: [] };
   const timers = [];
   const listeners = {};
   const ev = (name) => ({ addListener: (fn) => (listeners[name] = fn) });
@@ -48,11 +48,21 @@ function setup({ tabs, settings, session = {} }) {
       onShown: ev("menus.onShown"),
     },
     runtime: { onInstalled: ev("runtime.onInstalled"), onMessage: ev("runtime.onMessage"), getURL: (p) => p },
+    permissions: { contains: async () => granted },
+    scripting: {
+      executeScript: async (opts) => {
+        calls.script.push({ tabId: opts.target.tabId, args: [...opts.args], order: calls.discard.length });
+      },
+    },
     i18n: { getMessage: (k, sub) => (sub ? `${k}:${sub}` : k) },
   };
   const ctx = vm.createContext({
     browser, console, URL, JSON, Date, Promise,
-    setTimeout: (fn) => timers.push(fn),
+    setTimeout: (fn) => (runTimers ? fn() : timers.push(fn)),
+    makeGreyIcon: async (url) => {
+      calls.grey.push(url);
+      return "data:image/png;base64,GREY";
+    },
   });
   for (const f of ["shared.js", "background.js"]) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "src", f), "utf8"), ctx, { filename: f });
@@ -164,4 +174,48 @@ test("context menu toggles the site in the never-unload profile", async () => {
   assert.deepEqual(t.store.local.settings.profiles[0].hosts, ["news.site.com"]);
   await t.listeners["menus.onClicked"]({ menuItemId: "mtu-never-unload" }, tab);
   assert.deepEqual(t.store.local.settings.profiles[0].hosts, []);
+});
+
+test("greyIcons: swaps the favicon before the tab is unloaded", async () => {
+  const t = setup({
+    settings: cfg({ greyIcons: true }),
+    granted: true,
+    runTimers: true,
+    tabs: [{ ...baseTab, id: 1, lastAccessed: 0, favIconUrl: "https://example.com/favicon.ico" }],
+  });
+  await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
+  assert.deepEqual(t.calls.grey, ["https://example.com/favicon.ico"]);
+  assert.equal(t.calls.script.length, 1);
+  assert.deepEqual(t.calls.script[0].args, ["data:image/png;base64,GREY"]);
+  assert.equal(t.calls.script[0].order, 0, "icon is replaced before tabs.discard runs");
+  assert.deepEqual(t.calls.discard, [1]);
+});
+
+test("greyIcons: tabs are still unloaded without the all-sites permission", async () => {
+  const t = setup({
+    settings: cfg({ greyIcons: true }),
+    granted: false,
+    runTimers: true,
+    tabs: [{ ...baseTab, id: 1, lastAccessed: 0, favIconUrl: "https://example.com/favicon.ico" }],
+  });
+  await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
+  assert.deepEqual(t.calls.script, []);
+  assert.deepEqual(t.calls.discard, [1]);
+});
+
+test("greyIcons: off by default, and tabs without a favicon are just unloaded", async () => {
+  const off = setup({
+    settings: cfg(),
+    granted: true,
+    runTimers: true,
+    tabs: [{ ...baseTab, id: 1, lastAccessed: 0, favIconUrl: "https://example.com/favicon.ico" }],
+  });
+  await off.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
+  assert.deepEqual(off.calls.script, []);
+  assert.deepEqual(off.calls.discard, [1]);
+
+  const none = setup({ settings: cfg({ greyIcons: true }), granted: true, runTimers: true, tabs: [{ ...baseTab, id: 2, lastAccessed: 0 }] });
+  await none.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
+  assert.deepEqual(none.calls.script, []);
+  assert.deepEqual(none.calls.discard, [2]);
 });

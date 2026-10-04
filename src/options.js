@@ -58,6 +58,7 @@ function collect() {
     defaultTimeoutMin: $("defaultTimeoutMin").value,
     skipAudible: $("skipAudible").checked,
     skipPinned: $("skipPinned").checked,
+    greyIcons: $("greyIcons").checked,
     refresh: { enabled: $("refreshOn").checked, intervalMin: $("refreshInterval").value, pinnedOnly: $("pinnedOnly").checked },
     notificationPattern: $("notificationPattern").value,
     profiles: [...$("profiles").children].map((f) => f.collect()),
@@ -68,6 +69,7 @@ function render() {
   $("defaultTimeoutMin").value = settings.defaultTimeoutMin;
   $("skipAudible").checked = settings.skipAudible;
   $("skipPinned").checked = settings.skipPinned;
+  $("greyIcons").checked = settings.greyIcons;
   $("refreshOn").checked = settings.refresh.enabled;
   $("refreshInterval").value = settings.refresh.intervalMin;
   $("pinnedOnly").checked = settings.refresh.pinnedOnly;
@@ -81,7 +83,26 @@ function say(msg) {
 
 (async () => {
   settings = await loadSettings();
+  // The setting only counts while the optional permission is still granted.
+  settings.greyIcons = settings.greyIcons && (await browser.permissions.contains({ origins: ["<all_urls>"] }));
   render();
+  $("greyIcons").onchange = async () => {
+    try {
+      if ($("greyIcons").checked) {
+        // permissions.request must run straight from the click, before any other await.
+        const granted = await browser.permissions.request({ origins: ["<all_urls>"] });
+        if (!granted) {
+          $("greyIcons").checked = false;
+          say("Permission was not granted");
+        }
+      } else {
+        await browser.permissions.remove({ origins: ["<all_urls>"] });
+      }
+    } catch (e) {
+      $("greyIcons").checked = false;
+      say("Could not change the permission: " + e.message);
+    }
+  };
   $("add").onclick = () => {
     collect();
     settings.profiles.push(sanitizeSettings({ profiles: [{ name: "New profile" }] }).profiles[0]);
