@@ -27,7 +27,7 @@ Icons are rendered from `assets/logo.svg` with `npm run icons` (needs a Chromium
 
 ## Releases
 
-Push a tag that matches the version in `manifest.json` (for example `v0.2.0`). The Release workflow tests, lints, builds and attaches the package to a GitHub release. The landing page in `docs/` is deployed by the Pages workflow (Settings → Pages → Source: GitHub Actions).
+Push a tag that matches the version in `manifest.json` (for example `v0.2.0`). The Release workflow tests, lints and builds, then creates the GitHub release or, if it already exists, attaches the package to it. It can also be started by hand (Actions → Release → Run workflow) with an existing tag. The landing page in `docs/` is deployed by the Pages workflow (Settings → Pages → Source: GitHub Actions).
 
 ## Store submission notes
 

@@ -2,13 +2,22 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build and attach to its release (for example v0.2.0)"
+        required: true
 permissions:
   contents: write
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -17,7 +26,7 @@ jobs:
       - name: Check tag matches manifest version
         run: |
           version=$(node -p "require('./manifest.json').version")
-          [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME does not match manifest version $version"; exit 1; }
+          [ "v$version" = "$TAG" ] || { echo "Tag $TAG does not match manifest version $version"; exit 1; }
       - run: npm test
       - run: npm run lint
       - run: npm run build
@@ -26,6 +35,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           zip=$(ls web-ext-artifacts/*.zip)
-          cp "$zip" "magic-tab-unloader-${GITHUB_REF_NAME}.xpi"
-          gh release create "$GITHUB_REF_NAME" --generate-notes \
-            "$zip" "magic-tab-unloader-${GITHUB_REF_NAME}.xpi"
+          xpi="magic-tab-unloader-${TAG}.xpi"
+          cp "$zip" "$xpi"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$zip" "$xpi" --clobber
+          else
+            gh release create "$TAG" --verify-tag --generate-notes "$zip" "$xpi"
+          fi
