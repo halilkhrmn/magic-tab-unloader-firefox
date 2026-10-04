@@ -1,6 +1,6 @@
 {
   "name": "magic-tab-unloader",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Firefox extension that automatically unloads idle tabs.",
   "license": "GPL-3.0-only",
@@ -16,6 +16,18 @@
   "webExt": {
     "sourceDir": ".",
     "artifactsDir": "web-ext-artifacts",
-    "ignoreFiles": ["tests", "docs", "assets", ".github", "package.json", "package-lock.json", "README.md", "PRIVACY.md", "node_modules", "web-ext-artifacts", ".gitignore"]
+    "ignoreFiles": [
+      "tests",
+      "docs",
+      "assets",
+      ".github",
+      "package.json",
+      "package-lock.json",
+      "README.md",
+      "PRIVACY.md",
+      "node_modules",
+      "web-ext-artifacts",
+      ".gitignore"
+    ]
   }
 }
