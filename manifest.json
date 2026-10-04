@@ -1,10 +1,10 @@
 {
   "manifest_version": 3,
   "name": "__MSG_extName__",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "__MSG_extDescription__",
   "default_locale": "en",
-  "author": "halilkhrmn",
+  "author": "Halil Kahraman",
   "homepage_url": "https://github.com/halilkhrmn/magic-tab-unloader-firefox",
   "icons": { "48": "icons/icon-48.png", "96": "icons/icon-96.png", "128": "icons/icon-128.png" },
   "browser_specific_settings": {
