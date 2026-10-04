@@ -9,6 +9,7 @@ const DEFAULT_SETTINGS = {
   defaultTimeoutMin: 30, // idle minutes before a tab is unloaded (0 = never)
   skipAudible: true, // never unload tabs that are playing sound
   skipPinned: false, // never unload pinned tabs
+  greyIcons: false, // grey out the favicon of tabs we unload (needs the optional all-sites permission)
   // Periodically reload unloaded tabs in the background so the site can show its
   // notification dot / title counter, then unload them again.
   refresh: { enabled: false, intervalMin: 15, pinnedOnly: true },
@@ -174,6 +175,7 @@ function sanitizeSettings(raw) {
     skipAudible: raw.skipAudible === undefined ? d.skipAudible : !!raw.skipAudible,
     notificationPattern: pattern,
     skipPinned: !!raw.skipPinned,
+    greyIcons: !!raw.greyIcons,
     refresh: {
       enabled: !!(raw.refresh && raw.refresh.enabled),
       intervalMin: Math.max(1, num(raw.refresh && raw.refresh.intervalMin, d.refresh.intervalMin)),

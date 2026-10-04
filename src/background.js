@@ -39,8 +39,41 @@ function recordDiscard() {
   });
 }
 
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const ALL_SITES = { origins: ["<all_urls>"] };
+
+// Runs inside the page: replaces its favicon so the tab keeps a greyed-out icon once unloaded.
+function setPageIcon(href) {
+  document.querySelectorAll('link[rel~="icon"]').forEach((l) => l.remove());
+  const link = document.createElement("link");
+  link.rel = "icon";
+  link.href = href;
+  document.head.append(link);
+}
+
+// Best effort: any failure just leaves the original icon in place.
+async function greyOutIcon(tab) {
+  try {
+    if (!tab.favIconUrl || !/^(https?|data):/.test(tab.favIconUrl)) return;
+    if (!(await browser.permissions.contains(ALL_SITES))) return;
+    const dataUrl = await makeGreyIcon(tab.favIconUrl);
+    await browser.scripting.executeScript({ target: { tabId: tab.id }, func: setPageIcon, args: [dataUrl] });
+    // Give Firefox a moment to pick up the new icon before the page is unloaded.
+    for (let i = 0; i < 8; i++) {
+      await sleep(100);
+      if ((await browser.tabs.get(tab.id)).favIconUrl !== tab.favIconUrl) break;
+    }
+  } catch (e) {
+    console.debug("grey icon failed", tab.id, e);
+  }
+}
+
 async function discard(tab) {
   try {
+    if ((await loadSettings()).greyIcons) {
+      await greyOutIcon(tab);
+      if ((await browser.tabs.get(tab.id)).active) return; // the user switched to it meanwhile
+    }
     await browser.tabs.discard(tab.id);
     const after = await browser.tabs.get(tab.id);
     if (!after.discarded) return;
