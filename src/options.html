@@ -27,6 +27,10 @@
   <label for="notificationPattern">Notification title pattern (regular expression)</label>
   <input type="text" id="notificationPattern">
 </fieldset>
+<fieldset class="card"><legend>Tab appearance</legend>
+  <p class="muted">Firefox greys out tabs unloaded from its own right-click menu, but not tabs unloaded by an extension. To grey out every unloaded tab, including the ones this extension unloads, open <code>about:config</code> and set <code>browser.tabs.fadeOutUnloadedTabs</code> to <code>true</code>. Extensions cannot change this setting themselves.</p>
+  <button id="copy-pref" type="button">Copy setting name</button> <span id="copy-status" role="status"></span>
+</fieldset>
 <h2>Profiles</h2>
 <p>The first matching profile wins. Hosts match the domain and its subdomains (<code>github.com</code>, <code>*.google.com</code>); leave empty to match any site. A profile with active hours only applies inside that window.</p>
 <div id="profiles"></div>

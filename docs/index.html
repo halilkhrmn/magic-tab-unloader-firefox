@@ -64,6 +64,9 @@
 </ol>
 <p>Unsigned builds load permanently only in Firefox Developer Edition, Nightly or ESR with <code>xpinstall.signatures.required</code> set to false. A listing on addons.mozilla.org is planned.</p>
 
+<h2>Greyed-out tabs</h2>
+<p>Firefox greys out tabs unloaded from its right-click menu, but only greys out tabs unloaded by an extension when you turn it on. Open <code>about:config</code> and set <code>browser.tabs.fadeOutUnloadedTabs</code> to <code>true</code>. Extensions are not allowed to change this setting.</p>
+
 <h2>Permissions</h2>
 <div class="scroll"><table>
   <tr><th>Permission</th><th>Why</th></tr>
