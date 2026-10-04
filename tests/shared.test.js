@@ -183,8 +183,9 @@ test("unloadedUrls lists only unloaded http(s) tabs", () => {
     { url: "https://b.com", discarded: false },
     { url: "about:blank", discarded: true },
     { url: "https://c.com", discarded: true },
+    { url: "https://d.com", discarded: true, active: true },
   ]);
-  assert.deepEqual(urls, ["https://a.com", "https://c.com"]);
+  assert.deepEqual(urls, ["https://a.com", "https://c.com"], "an active tab is on its way to being loaded");
 });
 
 test("planRestore unloads matching loaded tabs and keeps waiting for missing ones", () => {
