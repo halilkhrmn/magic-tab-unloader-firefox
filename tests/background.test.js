@@ -313,3 +313,48 @@ test("greyIcons: the sleeping zZ follows the sleepMark setting (on by default)",
   assert.deepEqual(await run(cfg({ greyIcons: true })), [true]);
   assert.deepEqual(await run(cfg({ greyIcons: true, sleepMark: false })), [false]);
 });
+
+test("a refresh is written to the refresh log", async () => {
+  const t = setup({
+    settings: cfg({ refresh: { enabled: true, intervalMin: 10, pinnedOnly: false } }),
+    tabs: [{ ...baseTab, id: 7, url: "https://mail.example.com/x", discarded: true, lastAccessed: 0 }],
+    session: { mtu: { refreshedAt: { 7: 0 } } },
+  });
+  await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
+  t.tabs[0].discarded = false;
+  t.tabs[0].title = "(3) Inbox";
+  await t.listeners["tabs.onUpdated"](7, { status: "complete" });
+  await t.timers[0]();
+  const [entry] = Array.from(t.store.local.refreshLog);
+  assert.equal(entry.host, "mail.example.com");
+  assert.equal(entry.title, "(3) Inbox");
+  assert.equal(entry.news, true);
+  assert.equal(entry.attention, false);
+  assert.equal(entry.kept, false);
+});
+
+test("keepNewsLoaded: a tab with news stays loaded and later ticks leave it alone", async () => {
+  const t = setup({
+    settings: cfg({ keepNewsLoaded: true, refresh: { enabled: true, intervalMin: 10, pinnedOnly: false } }),
+    tabs: [{ ...baseTab, id: 7, discarded: true, lastAccessed: 0 }],
+    session: { mtu: { refreshedAt: { 7: 0 } } },
+  });
+  await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
+  t.tabs[0].discarded = false;
+  t.tabs[0].attention = true; // Firefox's own dot
+  await t.listeners["tabs.onUpdated"](7, { status: "complete" });
+  await t.timers[0]();
+  assert.deepEqual(t.calls.discard, [], "kept loaded");
+  assert.equal(t.store.local.refreshLog[0].kept, true);
+  assert.equal(t.store.local.refreshLog[0].attention, true);
+
+  // The tab is long idle, but it was kept on purpose.
+  await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
+  assert.deepEqual(t.calls.discard, []);
+
+  // Once the user has looked at it, it is a normal idle tab again.
+  await t.listeners["tabs.onActivated"]({ tabId: 7 });
+  t.tabs[0].active = false;
+  await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
+  assert.deepEqual(t.calls.discard, [7]);
+});

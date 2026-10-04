@@ -60,6 +60,7 @@ function collect() {
     skipPinned: $("skipPinned").checked,
     greyIcons: $("greyIcons").checked,
     sleepMark: $("sleepMark").checked,
+    keepNewsLoaded: $("keepNewsLoaded").checked,
     restoreUnloaded: $("restoreUnloaded").checked,
     refresh: { enabled: $("refreshOn").checked, intervalMin: $("refreshInterval").value, pinnedOnly: $("pinnedOnly").checked },
     notificationPattern: $("notificationPattern").value,
@@ -73,6 +74,7 @@ function render() {
   $("skipPinned").checked = settings.skipPinned;
   $("greyIcons").checked = settings.greyIcons;
   $("sleepMark").checked = settings.sleepMark;
+  $("keepNewsLoaded").checked = settings.keepNewsLoaded;
   syncSleepMark();
   $("restoreUnloaded").checked = settings.restoreUnloaded;
   $("refreshOn").checked = settings.refresh.enabled;
@@ -87,6 +89,26 @@ function syncSleepMark() {
   $("sleepMark").disabled = !$("greyIcons").checked;
 }
 
+async function renderLog() {
+  const { refreshLog } = await browser.storage.local.get("refreshLog");
+  const rows = (refreshLog || []).map((e) => {
+    const tr = document.createElement("tr");
+    const cells = [new Date(e.t).toLocaleTimeString(), e.host, e.attention ? "yes" : "no", e.news ? "yes" : "no", e.kept ? "yes" : "no", e.title];
+    cells.forEach((text, i) => {
+      const td = document.createElement("td");
+      td.textContent = text;
+      if (i === 5) {
+        td.className = "title";
+        td.title = text;
+      }
+      tr.append(td);
+    });
+    return tr;
+  });
+  $("log-body").replaceChildren(...rows);
+  $("log-empty").hidden = rows.length > 0;
+}
+
 function say(msg) {
   $("status").textContent = msg;
 }
@@ -96,6 +118,12 @@ function say(msg) {
   // The setting only counts while the optional permission is still granted.
   settings.greyIcons = settings.greyIcons && (await browser.permissions.contains({ origins: ["<all_urls>"] }));
   render();
+  renderLog();
+  $("log-reload").onclick = renderLog;
+  $("log-clear").onclick = async () => {
+    await browser.storage.local.remove("refreshLog");
+    renderLog();
+  };
   $("greyIcons").onchange = async () => {
     syncSleepMark();
     try {
