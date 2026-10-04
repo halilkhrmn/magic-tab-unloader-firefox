@@ -1,6 +1,28 @@
 // Builds a greyed-out, half-transparent copy of a favicon, matching how Firefox
-// draws the icon of a tab it unloaded itself (grayscale + 50% opacity).
+// draws the icon of a tab it unloaded itself (grayscale + 50% opacity), with a
+// small sleeping "zZ" in the top right corner.
 const iconCache = new Map(); // favicon url -> data URL
+
+// A "Z" drawn as a stroked path with a light outline so it reads on any tab colour.
+function drawZ(ctx, x, y, size) {
+  const path = () => {
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + size, y);
+    ctx.lineTo(x, y + size);
+    ctx.lineTo(x + size, y + size);
+  };
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "#ffffff";
+  ctx.lineWidth = size * 0.3 + 3;
+  path();
+  ctx.stroke();
+  ctx.strokeStyle = "#5a49e8";
+  ctx.lineWidth = size * 0.3;
+  path();
+  ctx.stroke();
+}
 
 async function makeGreyIcon(url) {
   if (iconCache.has(url)) return iconCache.get(url);
@@ -18,6 +40,10 @@ async function makeGreyIcon(url) {
     ctx.filter = "grayscale(100%)";
     ctx.globalAlpha = 0.5;
     ctx.drawImage(img, 0, 0, size, size);
+    ctx.filter = "none";
+    ctx.globalAlpha = 1;
+    drawZ(ctx, 11, 17, 7); // small z
+    drawZ(ctx, 19, 4, 9); // big Z
     const dataUrl = canvas.toDataURL("image/png");
     if (iconCache.size >= 200) iconCache.delete(iconCache.keys().next().value);
     iconCache.set(url, dataUrl);
