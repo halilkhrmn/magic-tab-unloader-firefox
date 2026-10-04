@@ -1,6 +1,6 @@
 {
   "extName": { "message": "Magic Tab Unloader" },
-  "extDescription": { "message": "Automatically unloads idle tabs to save memory, with per-site profiles, schedules and notification-aware refresh." },
+  "extDescription": { "message": "Automatically unloads idle tabs to save memory, with per-site profiles, schedules and greyed-out tab icons." },
   "menuNever": { "message": "Never unload this site" },
   "menuAllow": { "message": "Allow unloading this site again" }
 }

@@ -1,7 +1,5 @@
 const TICK_ALARM = "mtu-tick";
 const MENU_ID = "mtu-never-unload";
-const SETTLE_MS = 4000; // wait after load so SPA titles / badges can appear
-const STALE_REFRESH_MS = 2 * 60000; // give up waiting for a background refresh after this long
 const RESTORE_WINDOW_MS = 2 * 60000; // how long after startup we keep looking for restored tabs
 
 // The background page may be suspended at any time (event page), so all
@@ -15,7 +13,7 @@ function locked(fn) {
 
 async function readState() {
   const { mtu } = await browser.storage.session.get("mtu");
-  return { refreshedAt: {}, refreshing: {}, notified: {}, ...(mtu || {}) };
+  return { ...(mtu || {}) };
 }
 
 function updateState(mutator) {
@@ -79,9 +77,6 @@ async function discard(tab) {
     await browser.tabs.discard(tab.id);
     const after = await browser.tabs.get(tab.id);
     if (!after.discarded) return;
-    await updateState((s) => {
-      s.refreshedAt[tab.id] = Date.now();
-    });
     await recordDiscard();
     await saveSnapshot();
   } catch (e) {
@@ -119,97 +114,14 @@ async function tryRestore() {
   if (finished) await saveSnapshot();
 }
 
-async function updateBadge() {
-  const { notified } = await readState();
-  const n = Object.keys(notified).length;
-  await browser.action.setBadgeText({ text: n ? String(n) : "" });
-}
-
-async function flagNotification(tab) {
-  await updateState((s) => {
-    s.notified[tab.id] = tab.title || "notification";
-  });
-  await updateBadge();
-}
-
-// A short log of what each background refresh found, shown in the settings page.
-function logRefresh(tab, news, kept) {
-  return locked(async () => {
-    const { refreshLog } = await browser.storage.local.get("refreshLog");
-    const entry = { t: Date.now(), host: hostOf(tab.url) || "", title: tab.title || "", attention: !!tab.attention, news, kept };
-    await browser.storage.local.set({ refreshLog: appendLog(refreshLog, entry) });
-  });
-}
-
-// After a background refresh: flag the tab if it has news, then unload it again.
-async function finishRefresh(tabId) {
-  const wasRefreshing = await updateState((s) => {
-    const was = !!s.refreshing[tabId];
-    delete s.refreshing[tabId];
-    return was;
-  });
-  if (!wasRefreshing) return;
-  const settings = await loadSettings();
-  let tab;
-  try {
-    tab = await browser.tabs.get(tabId);
-  } catch {
-    return; // tab was closed
-  }
-  if (tab.active) return; // the user opened it meanwhile
-  const news = hasNotification(tab, settings.notificationPattern);
-  if (news) await flagNotification(tab);
-  const keep = news && settings.keepNewsLoaded;
-  await logRefresh(tab, news, keep);
-  if (!keep && isDiscardable(tab, settings)) await discard(tab);
-}
-
 async function tick() {
   await tryRestore();
   const settings = await loadSettings();
   if (settings.paused) return;
   const now = Date.now();
-  const tabs = await browser.tabs.query({});
-  const state = await readState();
-
-  for (const tab of tabs) {
-    const startedAt = state.refreshing[tab.id];
-    if (startedAt) {
-      if (now - startedAt > STALE_REFRESH_MS) await finishRefresh(tab.id);
-      continue;
-    }
-    if (tab.discarded && state.refreshedAt[tab.id] == null) {
-      // Discarded by someone else: start the refresh interval from now.
-      await updateState((s) => {
-        s.refreshedAt[tab.id] = now;
-      });
-      continue;
-    }
-    if (settings.keepNewsLoaded && !tab.discarded && state.notified[tab.id]) continue; // kept loaded on purpose
-    const action = planTab(tab, settings, { now, refreshedAt: state.refreshedAt[tab.id] });
-    if (action === "discard") {
-      await discard(tab);
-    } else if (action === "refresh") {
-      await updateState((s) => {
-        s.refreshedAt[tab.id] = now;
-        s.refreshing[tab.id] = now;
-      });
-      browser.tabs.reload(tab.id).catch(() =>
-        updateState((s) => {
-          delete s.refreshing[tab.id];
-        })
-      );
-    }
+  for (const tab of await browser.tabs.query({})) {
+    if (planTab(tab, settings, { now }) === "discard") await discard(tab);
   }
-
-  // Forget tabs that no longer exist.
-  const alive = new Set(tabs.map((t) => String(t.id)));
-  await updateState((s) => {
-    for (const key of ["refreshedAt", "refreshing", "notified"]) {
-      for (const id of Object.keys(s[key])) if (!alive.has(id)) delete s[key][id];
-    }
-  });
-  await updateBadge();
 }
 
 browser.runtime.onStartup.addListener(async () => {
@@ -224,33 +136,18 @@ browser.runtime.onStartup.addListener(async () => {
 
 browser.tabs.onCreated.addListener(() => tryRestore());
 
-browser.tabs.onUpdated.addListener(
-  async (tabId, changeInfo) => {
-    if (changeInfo.status !== "complete") return;
-    const { refreshing } = await readState();
-    if (refreshing[tabId]) setTimeout(() => finishRefresh(tabId), SETTLE_MS);
-  },
-  { properties: ["status"] }
-);
-
-async function clearTab(tabId) {
-  await updateState((s) => {
-    delete s.notified[tabId];
-    delete s.refreshing[tabId];
-    delete s.refreshedAt[tabId];
-  });
-  await updateBadge();
-  await saveSnapshot();
-}
-
-browser.tabs.onActivated.addListener(({ tabId }) => clearTab(tabId));
-browser.tabs.onRemoved.addListener((tabId) => clearTab(tabId));
+// A tab the user opens or closes is no longer remembered as unloaded.
+browser.tabs.onActivated.addListener(() => saveSnapshot());
+browser.tabs.onRemoved.addListener(() => saveSnapshot());
 
 browser.alarms.create(TICK_ALARM, { periodInMinutes: 1 });
 browser.alarms.onAlarm.addListener((a) => a.name === TICK_ALARM && tick());
 
 // Context menu: toggle "never unload this site".
 browser.runtime.onInstalled.addListener(() => {
+  // Left over from the removed auto-refresh feature.
+  browser.storage.local.remove("refreshLog");
+  browser.action.setBadgeText({ text: "" });
   browser.menus.create({
     id: MENU_ID,
     title: browser.i18n.getMessage("menuNever"),

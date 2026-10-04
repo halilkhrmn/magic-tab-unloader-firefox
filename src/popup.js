@@ -11,20 +11,10 @@
   $("paused").checked = settings.paused;
   $("defaultTimeoutMin").value = settings.defaultTimeoutMin;
   $("skipPinned").checked = settings.skipPinned;
-  $("refreshOn").checked = settings.refresh.enabled;
-  $("refreshInterval").value = settings.refresh.intervalMin;
-  $("pinnedOnly").checked = settings.refresh.pinnedOnly;
 
   $("paused").onchange = () => save(() => ({ paused: $("paused").checked }));
   $("defaultTimeoutMin").onchange = () => save(() => ({ defaultTimeoutMin: $("defaultTimeoutMin").value }));
   $("skipPinned").onchange = () => save(() => ({ skipPinned: $("skipPinned").checked }));
-  const saveRefresh = () =>
-    save(() => ({
-      refresh: { enabled: $("refreshOn").checked, intervalMin: $("refreshInterval").value, pinnedOnly: $("pinnedOnly").checked },
-    }));
-  $("refreshOn").onchange = saveRefresh;
-  $("refreshInterval").onchange = saveRefresh;
-  $("pinnedOnly").onchange = saveRefresh;
 
   const [{ stats }, discarded] = await Promise.all([
     browser.storage.local.get("stats"),

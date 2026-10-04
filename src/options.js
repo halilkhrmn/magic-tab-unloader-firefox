@@ -20,8 +20,6 @@ function profileEl(p, i) {
   q("pinned").value = p.pinned || "any";
   q("timeoutMin").value = p.timeoutMin ?? "";
   q("never").checked = !!p.never;
-  q("refreshOn").checked = !!p.refresh?.enabled;
-  q("interval").value = p.refresh?.intervalMin ?? 15;
   q("hoursOn").checked = !!p.hours?.enabled;
   q("from").value = p.hours?.from ?? "09:00";
   q("to").value = p.hours?.to ?? "18:00";
@@ -41,7 +39,6 @@ function profileEl(p, i) {
     pinned: q("pinned").value,
     never: q("never").checked,
     timeoutMin: q("timeoutMin").value,
-    refresh: { enabled: q("refreshOn").checked, intervalMin: q("interval").value },
     hours: {
       enabled: q("hoursOn").checked,
       from: q("from").value,
@@ -60,10 +57,7 @@ function collect() {
     skipPinned: $("skipPinned").checked,
     greyIcons: $("greyIcons").checked,
     sleepMark: $("sleepMark").checked,
-    keepNewsLoaded: $("keepNewsLoaded").checked,
     restoreUnloaded: $("restoreUnloaded").checked,
-    refresh: { enabled: $("refreshOn").checked, intervalMin: $("refreshInterval").value, pinnedOnly: $("pinnedOnly").checked },
-    notificationPattern: $("notificationPattern").value,
     profiles: [...$("profiles").children].map((f) => f.collect()),
   });
 }
@@ -74,39 +68,14 @@ function render() {
   $("skipPinned").checked = settings.skipPinned;
   $("greyIcons").checked = settings.greyIcons;
   $("sleepMark").checked = settings.sleepMark;
-  $("keepNewsLoaded").checked = settings.keepNewsLoaded;
   syncSleepMark();
   $("restoreUnloaded").checked = settings.restoreUnloaded;
-  $("refreshOn").checked = settings.refresh.enabled;
-  $("refreshInterval").value = settings.refresh.intervalMin;
-  $("pinnedOnly").checked = settings.refresh.pinnedOnly;
-  $("notificationPattern").value = settings.notificationPattern;
   $("profiles").replaceChildren(...settings.profiles.map(profileEl));
 }
 
 // The "zZ" only matters while the icon is greyed out.
 function syncSleepMark() {
   $("sleepMark").disabled = !$("greyIcons").checked;
-}
-
-async function renderLog() {
-  const { refreshLog } = await browser.storage.local.get("refreshLog");
-  const rows = (refreshLog || []).map((e) => {
-    const tr = document.createElement("tr");
-    const cells = [new Date(e.t).toLocaleTimeString(), e.host, e.attention ? "yes" : "no", e.news ? "yes" : "no", e.kept ? "yes" : "no", e.title];
-    cells.forEach((text, i) => {
-      const td = document.createElement("td");
-      td.textContent = text;
-      if (i === 5) {
-        td.className = "title";
-        td.title = text;
-      }
-      tr.append(td);
-    });
-    return tr;
-  });
-  $("log-body").replaceChildren(...rows);
-  $("log-empty").hidden = rows.length > 0;
 }
 
 function say(msg) {
@@ -118,12 +87,6 @@ function say(msg) {
   // The setting only counts while the optional permission is still granted.
   settings.greyIcons = settings.greyIcons && (await browser.permissions.contains({ origins: ["<all_urls>"] }));
   render();
-  renderLog();
-  $("log-reload").onclick = renderLog;
-  $("log-clear").onclick = async () => {
-    await browser.storage.local.remove("refreshLog");
-    renderLog();
-  };
   $("greyIcons").onchange = async () => {
     syncSleepMark();
     try {
