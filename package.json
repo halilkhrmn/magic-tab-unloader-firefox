@@ -20,6 +20,7 @@
       "tests",
       "docs",
       "assets",
+      "store",
       ".github",
       "package.json",
       "package-lock.json",

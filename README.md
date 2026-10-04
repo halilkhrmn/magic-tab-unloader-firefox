@@ -37,6 +37,9 @@ Push a tag that matches the version in `manifest.json` (for example `v0.2.0`). T
 
 ## Store submission notes
 
+Everything for the addons.mozilla.org form (summary, description, permission reasons, reviewer notes, screenshots) is in [`store/listing.md`](store/listing.md); `sh store/make-screenshots.sh` regenerates the screenshots. A test (`tests/store.test.js`) fails if the permissions, icon sizes, text limits or screenshots drift from what that file says.
+
+
 - Manifest V3, `data_collection_permissions` declares no data collection, and there is no remote code, minification or build step: the submitted source is the repository.
 - Permissions and their reasons are listed on the landing page. See [PRIVACY.md](PRIVACY.md).
 
