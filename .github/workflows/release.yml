@@ -1,0 +1,31 @@
+name: Release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: write
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Check tag matches manifest version
+        run: |
+          version=$(node -p "require('./manifest.json').version")
+          [ "v$version" = "$GITHUB_REF_NAME" ] || { echo "Tag $GITHUB_REF_NAME does not match manifest version $version"; exit 1; }
+      - run: npm test
+      - run: npm run lint
+      - run: npm run build
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          zip=$(ls web-ext-artifacts/*.zip)
+          cp "$zip" "magic-tab-unloader-${GITHUB_REF_NAME}.xpi"
+          gh release create "$GITHUB_REF_NAME" --generate-notes \
+            "$zip" "magic-tab-unloader-${GITHUB_REF_NAME}.xpi"

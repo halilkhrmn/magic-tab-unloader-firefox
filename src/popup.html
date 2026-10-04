@@ -1,7 +1,17 @@
 <!doctype html>
 <meta charset="utf-8">
-<style>body{font:13px system-ui;min-width:220px;margin:10px}button{width:100%;margin:4px 0;padding:6px}</style>
+<style>
+  body{font:13px system-ui;min-width:240px;margin:10px;color-scheme:light dark}
+  button{width:100%;margin:4px 0;padding:6px}
+  .stats{margin:8px 0;padding:8px;border-radius:6px;background:#8881;line-height:1.5}
+  small{opacity:.7}
+</style>
 <label><input type="checkbox" id="paused"> Pause auto-unload</label>
+<div class="stats">
+  <div><b id="now-count">0</b> tabs unloaded now</div>
+  <div>≈ <b id="mb">0</b> MB freed <small>(estimate)</small></div>
+  <div><small>Today: <span id="today">0</span> · Total: <span id="total">0</span></small></div>
+</div>
 <button id="now">Unload idle tabs now</button>
 <button id="opts">Settings</button>
 <script src="shared.js"></script>

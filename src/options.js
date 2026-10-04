@@ -1,22 +1,20 @@
 let settings;
 const $ = (id) => document.getElementById(id);
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 function profileEl(p, i) {
-  const f = document.createElement("fieldset");
-  f.innerHTML = `
-    <legend><input type="text" data-k="name" style="width:200px"></legend>
-    <label>Hosts (comma separated)<input type="text" data-k="hosts"></label>
-    <div class="row">
-      <label>Pinned <select data-k="pinned"><option>any</option><option>only</option><option>not</option></select></label>
-      <label>Idle minutes (empty = default, 0 = never) <input type="number" data-k="timeoutMin" min="0"></label>
-      <label><input type="checkbox" data-k="never"> Never unload</label>
-    </div>
-    <div class="row">
-      <label><input type="checkbox" data-k="refreshOn"> Periodically refresh unloaded tabs</label>
-      <label>every <input type="number" data-k="interval" min="1"> min</label>
-    </div>
-    <button data-act="up">↑</button> <button data-act="del">Delete</button>`;
+  const f = $("profile-tpl").content.firstElementChild.cloneNode(true);
+  const daysBox = f.querySelector(".days");
+  DAY_NAMES.forEach((d, n) => {
+    const label = document.createElement("label");
+    const box = document.createElement("input");
+    box.type = "checkbox";
+    box.dataset.day = n;
+    label.append(box, ` ${d}`);
+    daysBox.append(label);
+  });
   const q = (k) => f.querySelector(`[data-k=${k}]`);
+  const dayBoxes = [...f.querySelectorAll("[data-day]")];
   q("name").value = p.name;
   q("hosts").value = (p.hosts || []).join(", ");
   q("pinned").value = p.pinned || "any";
@@ -24,45 +22,96 @@ function profileEl(p, i) {
   q("never").checked = !!p.never;
   q("refreshOn").checked = !!p.refresh?.enabled;
   q("interval").value = p.refresh?.intervalMin ?? 15;
+  q("hoursOn").checked = !!p.hours?.enabled;
+  q("from").value = p.hours?.from ?? "09:00";
+  q("to").value = p.hours?.to ?? "18:00";
+  dayBoxes.forEach((b) => (b.checked = (p.hours?.days ?? [1, 2, 3, 4, 5]).includes(Number(b.dataset.day))));
   f.onclick = (e) => {
     const act = e.target.dataset?.act;
-    if (act === "del") { settings.profiles.splice(i, 1); render(); }
-    if (act === "up" && i > 0) { collect(); const [x] = settings.profiles.splice(i, 1); settings.profiles.splice(i - 1, 0, x); render(); }
+    if (!act) return;
+    collect();
+    if (act === "del") settings.profiles.splice(i, 1);
+    if (act === "up" && i > 0) settings.profiles.splice(i - 1, 0, ...settings.profiles.splice(i, 1));
+    render();
   };
   f.collect = () => ({
-    id: p.id || crypto.randomUUID(),
-    name: q("name").value || "Profile",
-    hosts: q("hosts").value.split(",").map((s) => s.trim()).filter(Boolean),
+    id: p.id,
+    name: q("name").value,
+    hosts: q("hosts").value.split(","),
     pinned: q("pinned").value,
     never: q("never").checked,
-    timeoutMin: q("timeoutMin").value === "" ? null : Number(q("timeoutMin").value),
-    refresh: { enabled: q("refreshOn").checked, intervalMin: Number(q("interval").value) || 15 },
+    timeoutMin: q("timeoutMin").value,
+    refresh: { enabled: q("refreshOn").checked, intervalMin: q("interval").value },
+    hours: {
+      enabled: q("hoursOn").checked,
+      from: q("from").value,
+      to: q("to").value,
+      days: dayBoxes.filter((b) => b.checked).map((b) => Number(b.dataset.day)),
+    },
   });
   return f;
 }
 
 function collect() {
-  settings.defaultTimeoutMin = Number($("defaultTimeoutMin").value) || 0;
-  settings.skipAudible = $("skipAudible").checked;
-  settings.notificationPattern = $("notificationPattern").value;
-  settings.profiles = [...$("profiles").children].map((f) => f.collect());
+  settings = sanitizeSettings({
+    ...settings,
+    defaultTimeoutMin: $("defaultTimeoutMin").value,
+    skipAudible: $("skipAudible").checked,
+    notifyOnFound: $("notifyOnFound").checked,
+    estimateMbPerTab: $("estimateMbPerTab").value,
+    notificationPattern: $("notificationPattern").value,
+    profiles: [...$("profiles").children].map((f) => f.collect()),
+  });
 }
 
 function render() {
   $("defaultTimeoutMin").value = settings.defaultTimeoutMin;
   $("skipAudible").checked = settings.skipAudible;
+  $("notifyOnFound").checked = settings.notifyOnFound;
+  $("estimateMbPerTab").value = settings.estimateMbPerTab;
   $("notificationPattern").value = settings.notificationPattern;
   $("profiles").replaceChildren(...settings.profiles.map(profileEl));
+}
+
+function say(msg) {
+  $("status").textContent = msg;
 }
 
 (async () => {
   settings = await loadSettings();
   render();
-  $("add").onclick = () => { collect(); settings.profiles.push({ name: "New profile", hosts: [], pinned: "any" }); render(); };
-  $("save").onclick = async () => {
+  $("add").onclick = () => {
     collect();
-    try { new RegExp(settings.notificationPattern); } catch { $("status").textContent = "Invalid regex"; return; }
+    settings.profiles.push(sanitizeSettings({ profiles: [{ name: "New profile" }] }).profiles[0]);
+    render();
+  };
+  $("save").onclick = async () => {
+    try {
+      collect();
+    } catch (e) {
+      return say(e.message);
+    }
     await browser.storage.local.set({ settings });
-    $("status").textContent = "Saved ✓";
+    say("Saved");
+  };
+  $("export").onclick = () => {
+    const blob = new Blob([JSON.stringify(settings, null, 2)], { type: "application/json" });
+    const a = Object.assign(document.createElement("a"), {
+      href: URL.createObjectURL(blob),
+      download: "magic-tab-unloader-settings.json",
+    });
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  $("import").onclick = () => $("file").click();
+  $("file").onchange = async () => {
+    try {
+      settings = sanitizeSettings(JSON.parse(await $("file").files[0].text()));
+      render();
+      say("Imported – press Save to apply");
+    } catch (e) {
+      say("Import failed: " + e.message);
+    }
+    $("file").value = "";
   };
 })();

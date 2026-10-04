@@ -1,35 +1,102 @@
 const TICK_ALARM = "mtu-tick";
+const MENU_ID = "mtu-never-unload";
 const SETTLE_MS = 4000; // wait after load so SPA titles / badges can appear
+const STALE_REFRESH_MS = 2 * 60000; // give up waiting for a background refresh after this long
 
-const refreshedAt = new Map(); // tabId -> last refresh timestamp
-const refreshing = new Set(); // tabIds being refreshed in the background
-const notified = new Set(); // tabIds kept loaded because they have a notification
+// The background page may be suspended at any time (event page), so all
+// runtime state lives in storage.session and is accessed through one queue.
+let queue = Promise.resolve();
+function locked(fn) {
+  const run = queue.then(fn);
+  queue = run.catch(() => {});
+  return run;
+}
 
-function hasNotification(tab, settings) {
-  if (tab.attention) return true; // Firefox's blue "attention" dot
+async function readState() {
+  const { mtu } = await browser.storage.session.get("mtu");
+  return { refreshedAt: {}, refreshing: {}, notified: {}, ...(mtu || {}) };
+}
+
+function updateState(mutator) {
+  return locked(async () => {
+    const state = await readState();
+    const result = mutator(state);
+    await browser.storage.session.set({ mtu: state });
+    return result;
+  });
+}
+
+function recordDiscard() {
+  return locked(async () => {
+    const { stats } = await browser.storage.local.get("stats");
+    const s = stats || { total: 0, days: {} };
+    const day = new Date().toISOString().slice(0, 10);
+    s.total += 1;
+    s.days[day] = (s.days[day] || 0) + 1;
+    const keep = Object.keys(s.days).sort().slice(-30);
+    s.days = Object.fromEntries(keep.map((k) => [k, s.days[k]]));
+    await browser.storage.local.set({ stats: s });
+  });
+}
+
+async function discard(tab) {
   try {
-    return new RegExp(settings.notificationPattern).test(tab.title || "");
-  } catch {
-    return false;
-  }
-}
-
-function isDiscardable(tab, settings) {
-  if (tab.active || tab.discarded) return false;
-  if (settings.skipAudible && tab.audible) return false;
-  return /^https?:/.test(tab.url || "");
-}
-
-function findProfile(settings, tab) {
-  return settings.profiles.find((p) => profileMatches(p, tab)) || null;
-}
-
-async function discard(tabId) {
-  try {
-    await browser.tabs.discard(tabId);
+    await browser.tabs.discard(tab.id);
+    const after = await browser.tabs.get(tab.id);
+    if (!after.discarded) return;
+    await updateState((s) => {
+      s.refreshedAt[tab.id] = Date.now();
+    });
+    await recordDiscard();
   } catch (e) {
-    console.debug("discard failed", tabId, e);
+    console.debug("discard failed", tab.id, e);
   }
+}
+
+async function updateBadge() {
+  const { notified } = await readState();
+  const n = Object.keys(notified).length;
+  await browser.action.setBadgeText({ text: n ? String(n) : "" });
+}
+
+async function flagNotification(tab, settings) {
+  const marker = tab.title || "notification";
+  const isNew = await updateState((s) => {
+    const changed = s.notified[tab.id] !== marker;
+    s.notified[tab.id] = marker;
+    return changed;
+  });
+  await updateBadge();
+  if (isNew && settings.notifyOnFound) {
+    browser.notifications
+      .create(`mtu-tab-${tab.id}`, {
+        type: "basic",
+        title: browser.i18n.getMessage("notificationTitle", hostOf(tab.url) || "tab"),
+        message: marker,
+        iconUrl: browser.runtime.getURL("icons/icon-96.png"),
+      })
+      .catch(() => {});
+  }
+}
+
+// After a background refresh: flag the tab if it has news, then unload it again.
+async function finishRefresh(tabId) {
+  const wasRefreshing = await updateState((s) => {
+    const was = !!s.refreshing[tabId];
+    delete s.refreshing[tabId];
+    return was;
+  });
+  if (!wasRefreshing) return;
+  const settings = await loadSettings();
+  let tab;
+  try {
+    tab = await browser.tabs.get(tabId);
+  } catch {
+    return; // tab was closed
+  }
+  if (tab.active) return; // the user opened it meanwhile
+  if (hasNotification(tab, settings.notificationPattern)) await flagNotification(tab, settings);
+  if (isDiscardable(tab, settings)) await discard(tab);
 }
 
 async function tick() {
@@ -37,68 +104,112 @@ async function tick() {
   if (settings.paused) return;
   const now = Date.now();
   const tabs = await browser.tabs.query({});
+  const state = await readState();
 
   for (const tab of tabs) {
-    if (refreshing.has(tab.id) || tab.active) continue;
-    const profile = findProfile(settings, tab);
-    if (profile?.never) continue;
-
-    if (tab.discarded) {
-      const r = profile?.refresh;
-      if (r?.enabled && now - (refreshedAt.get(tab.id) ?? 0) >= r.intervalMin * 60000) {
-        refreshedAt.set(tab.id, now);
-        refreshing.add(tab.id);
-        browser.tabs.reload(tab.id).catch(() => refreshing.delete(tab.id));
-      }
+    const startedAt = state.refreshing[tab.id];
+    if (startedAt) {
+      if (now - startedAt > STALE_REFRESH_MS) await finishRefresh(tab.id);
       continue;
     }
-
-    if (notified.has(tab.id) || !isDiscardable(tab, settings)) continue;
-    const timeoutMin = profile?.timeoutMin ?? settings.defaultTimeoutMin;
-    if (!timeoutMin) continue;
-    if (now - tab.lastAccessed >= timeoutMin * 60000) await discard(tab.id);
+    if (tab.discarded && state.refreshedAt[tab.id] == null) {
+      // Discarded by someone else: start the refresh interval from now.
+      await updateState((s) => {
+        s.refreshedAt[tab.id] = now;
+      });
+      continue;
+    }
+    const action = planTab(tab, settings, { now, refreshedAt: state.refreshedAt[tab.id] });
+    if (action === "discard") {
+      await discard(tab);
+    } else if (action === "refresh") {
+      await updateState((s) => {
+        s.refreshedAt[tab.id] = now;
+        s.refreshing[tab.id] = now;
+      });
+      browser.tabs.reload(tab.id).catch(() =>
+        updateState((s) => {
+          delete s.refreshing[tab.id];
+        })
+      );
+    }
   }
+
+  // Forget tabs that no longer exist.
+  const alive = new Set(tabs.map((t) => String(t.id)));
+  await updateState((s) => {
+    for (const key of ["refreshedAt", "refreshing", "notified"]) {
+      for (const id of Object.keys(s[key])) if (!alive.has(id)) delete s[key][id];
+    }
+  });
+  await updateBadge();
 }
 
-// After a background refresh finishes: keep the tab loaded if it has a
-// notification, otherwise unload it again.
 browser.tabs.onUpdated.addListener(
-  (tabId, changeInfo) => {
-    if (changeInfo.status !== "complete" || !refreshing.has(tabId)) return;
-    setTimeout(async () => {
-      refreshing.delete(tabId);
-      try {
-        const [settings, tab] = await Promise.all([loadSettings(), browser.tabs.get(tabId)]);
-        if (hasNotification(tab, settings)) {
-          notified.add(tabId);
-          browser.action.setBadgeText({ text: String(notified.size) });
-        } else if (isDiscardable(tab, settings)) {
-          await discard(tabId);
-        }
-      } catch {
-        /* tab closed */
-      }
-    }, SETTLE_MS);
+  async (tabId, changeInfo) => {
+    if (changeInfo.status !== "complete") return;
+    const { refreshing } = await readState();
+    if (refreshing[tabId]) setTimeout(() => finishRefresh(tabId), SETTLE_MS);
   },
   { properties: ["status"] }
 );
 
-browser.tabs.onActivated.addListener(({ tabId }) => {
-  notified.delete(tabId);
-  refreshing.delete(tabId);
-  browser.action.setBadgeText({ text: notified.size ? String(notified.size) : "" });
-});
+async function clearTab(tabId) {
+  await updateState((s) => {
+    delete s.notified[tabId];
+    delete s.refreshing[tabId];
+    delete s.refreshedAt[tabId];
+  });
+  browser.notifications.clear(`mtu-tab-${tabId}`).catch(() => {});
+  await updateBadge();
+}
 
-browser.tabs.onRemoved.addListener((tabId) => {
-  notified.delete(tabId);
-  refreshing.delete(tabId);
-  refreshedAt.delete(tabId);
+browser.tabs.onActivated.addListener(({ tabId }) => clearTab(tabId));
+browser.tabs.onRemoved.addListener((tabId) => clearTab(tabId));
+
+browser.notifications.onClicked.addListener(async (id) => {
+  const tabId = Number(id.replace("mtu-tab-", ""));
+  if (!Number.isInteger(tabId)) return;
+  try {
+    const tab = await browser.tabs.update(tabId, { active: true });
+    await browser.windows.update(tab.windowId, { focused: true });
+  } catch {
+    /* tab closed */
+  }
 });
 
 browser.alarms.create(TICK_ALARM, { periodInMinutes: 1 });
 browser.alarms.onAlarm.addListener((a) => a.name === TICK_ALARM && tick());
 
-// Popup: "unload all idle tabs now"
+// Context menu: toggle "never unload this site".
+browser.runtime.onInstalled.addListener(() => {
+  browser.menus.create({
+    id: MENU_ID,
+    title: browser.i18n.getMessage("menuNever"),
+    contexts: ["page", "tab"],
+  });
+});
+
+browser.menus.onClicked.addListener(async (info, tab) => {
+  if (info.menuItemId !== MENU_ID || !tab) return;
+  const host = hostOf(tab.url);
+  if (!host) return;
+  const { settings } = toggleWhitelist(await loadSettings(), host);
+  await browser.storage.local.set({ settings });
+});
+
+browser.menus.onShown.addListener(async (info, tab) => {
+  if (!info.menuIds.includes(MENU_ID) || !tab) return;
+  const host = hostOf(tab.url);
+  const listed = host ? isWhitelisted(await loadSettings(), host) : false;
+  await browser.menus.update(MENU_ID, {
+    title: browser.i18n.getMessage(listed ? "menuAllow" : "menuNever"),
+    enabled: !!host,
+  });
+  browser.menus.refresh();
+});
+
+// Popup: "unload idle tabs now"
 browser.runtime.onMessage.addListener(async (msg) => {
   if (msg?.type !== "discard-now") return;
   const settings = await loadSettings();
@@ -106,7 +217,7 @@ browser.runtime.onMessage.addListener(async (msg) => {
   let n = 0;
   for (const tab of tabs) {
     if (!isDiscardable(tab, settings) || findProfile(settings, tab)?.never) continue;
-    await discard(tab.id);
+    await discard(tab);
     n++;
   }
   return n;
