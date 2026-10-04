@@ -48,10 +48,10 @@
 <div class="grid">
   <div class="card"><h3>Automatic unload</h3><p>Tabs that sit idle past a time limit are unloaded. They stay in your tab bar and reload when you click them. The active tab and tabs playing audio are never touched.</p></div>
   <div class="card"><h3>Profiles per site</h3><p>Match by hostname and pinned state. Give <code>docs.example.com</code> two hours, a chat tab five minutes, and your bank "never".</p></div>
-  <div class="card"><h3>News-aware refresh</h3><p>Unloaded tabs are reloaded in the background every few minutes. If the title shows <code>(3) Inbox</code> or Firefox marks the tab with its blue dot, you get a badge and a notification, then the tab is unloaded again.</p></div>
+  <div class="card"><h3>Auto-refresh for notification dots</h3><p>Unloaded tabs are reloaded in the background every few minutes you choose, so sites can show their notification dot or title counter, then unloaded again. Tabs with news are counted on the toolbar badge.</p></div>
   <div class="card"><h3>Active hours</h3><p>Apply a profile only on weekdays, during work hours, or overnight. Overnight windows such as 22:00–06:00 work.</p></div>
   <div class="card"><h3>Right-click whitelist</h3><p>"Never unload this site" on any page or tab. Choose it again to undo.</p></div>
-  <div class="card"><h3>Memory estimate</h3><p>The popup shows how many tabs are unloaded and an estimate of the memory freed. Firefox does not give extensions real per-tab memory, so the figure uses a size you can adjust.</p></div>
+  <div class="card"><h3>Simple popup</h3><p>Pause, idle time, "never unload pinned tabs" and auto-refresh are one click away in the toolbar popup. Everything else is in the settings page.</p></div>
   <div class="card"><h3>Backup</h3><p>Export your profiles to a JSON file and import them on another computer.</p></div>
   <div class="card"><h3>Private by design</h3><p>No accounts, no analytics and no network requests. Settings stay in your browser.</p></div>
 </div>
@@ -71,7 +71,6 @@
   <tr><td><code>alarms</code></td><td>Run the once-a-minute check.</td></tr>
   <tr><td><code>storage</code></td><td>Save your settings and unload statistics locally.</td></tr>
   <tr><td><code>menus</code></td><td>Add the "Never unload this site" right-click item.</td></tr>
-  <tr><td><code>notifications</code></td><td>Tell you when a refreshed tab has news.</td></tr>
 </table></div>
 
 <footer>Free software under the GPL-3.0 license. Not affiliated with Mozilla. <a href="https://github.com/halilkhrmn/magic-tab-unloader-firefox/blob/main/PRIVACY.md">Privacy</a></footer>

@@ -59,24 +59,11 @@ async function updateBadge() {
   await browser.action.setBadgeText({ text: n ? String(n) : "" });
 }
 
-async function flagNotification(tab, settings) {
-  const marker = tab.title || "notification";
-  const isNew = await updateState((s) => {
-    const changed = s.notified[tab.id] !== marker;
-    s.notified[tab.id] = marker;
-    return changed;
+async function flagNotification(tab) {
+  await updateState((s) => {
+    s.notified[tab.id] = tab.title || "notification";
   });
   await updateBadge();
-  if (isNew && settings.notifyOnFound) {
-    browser.notifications
-      .create(`mtu-tab-${tab.id}`, {
-        type: "basic",
-        title: browser.i18n.getMessage("notificationTitle", hostOf(tab.url) || "tab"),
-        message: marker,
-        iconUrl: browser.runtime.getURL("icons/icon-96.png"),
-      })
-      .catch(() => {});
-  }
 }
 
 // After a background refresh: flag the tab if it has news, then unload it again.
@@ -95,7 +82,7 @@ async function finishRefresh(tabId) {
     return; // tab was closed
   }
   if (tab.active) return; // the user opened it meanwhile
-  if (hasNotification(tab, settings.notificationPattern)) await flagNotification(tab, settings);
+  if (hasNotification(tab, settings.notificationPattern)) await flagNotification(tab);
   if (isDiscardable(tab, settings)) await discard(tab);
 }
 
@@ -160,23 +147,11 @@ async function clearTab(tabId) {
     delete s.refreshing[tabId];
     delete s.refreshedAt[tabId];
   });
-  browser.notifications.clear(`mtu-tab-${tabId}`).catch(() => {});
   await updateBadge();
 }
 
 browser.tabs.onActivated.addListener(({ tabId }) => clearTab(tabId));
 browser.tabs.onRemoved.addListener((tabId) => clearTab(tabId));
-
-browser.notifications.onClicked.addListener(async (id) => {
-  const tabId = Number(id.replace("mtu-tab-", ""));
-  if (!Number.isInteger(tabId)) return;
-  try {
-    const tab = await browser.tabs.update(tabId, { active: true });
-    await browser.windows.update(tab.windowId, { focused: true });
-  } catch {
-    /* tab closed */
-  }
-});
 
 browser.alarms.create(TICK_ALARM, { periodInMinutes: 1 });
 browser.alarms.onAlarm.addListener((a) => a.name === TICK_ALARM && tick());

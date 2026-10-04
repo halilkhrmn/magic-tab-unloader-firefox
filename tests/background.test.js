@@ -9,7 +9,7 @@ const MIN = 60000;
 // Loads shared.js + background.js into a sandbox with a fake `browser` object.
 function setup({ tabs, settings, session = {} }) {
   const store = { local: { settings }, session: { ...session } };
-  const calls = { discard: [], reload: [], notify: [], badge: [], menus: [] };
+  const calls = { discard: [], reload: [], badge: [], menus: [] };
   const timers = [];
   const listeners = {};
   const ev = (name) => ({ addListener: (fn) => (listeners[name] = fn) });
@@ -40,11 +40,6 @@ function setup({ tabs, settings, session = {} }) {
     windows: { update: async () => {} },
     alarms: { create() {}, onAlarm: ev("alarms.onAlarm") },
     action: { setBadgeText: async ({ text }) => calls.badge.push(text) },
-    notifications: {
-      create: async (id, opts) => calls.notify.push({ id, ...opts }),
-      clear: async () => {},
-      onClicked: ev("notifications.onClicked"),
-    },
     menus: {
       create: (o) => calls.menus.push(o),
       update: async () => {},
@@ -105,10 +100,10 @@ test("refresh cycle without news: reload, then unload again silently", async () 
   assert.equal(t.timers.length, 1, "waits for the page to settle");
   await t.timers[0]();
   assert.deepEqual(t.calls.discard, [7]);
-  assert.deepEqual(t.calls.notify, []);
+  assert.equal(t.calls.badge.at(-1), "", "no badge without news");
 });
 
-test("refresh cycle with news: flags it, notifies once, unloads again", async () => {
+test("refresh cycle with news: flags it on the badge and unloads again", async () => {
   const t = setup({
     settings: cfg({ profiles: [{ id: "p", pinned: "only", refresh: { enabled: true, intervalMin: 15 } }] }),
     tabs: [{ ...baseTab, id: 7, pinned: true, discarded: true, lastAccessed: 0 }],
@@ -121,8 +116,6 @@ test("refresh cycle with news: flags it, notifies once, unloads again", async ()
   await t.timers[0]();
 
   assert.deepEqual(t.calls.discard, [7], "unloaded again");
-  assert.equal(t.calls.notify.length, 1);
-  assert.equal(t.calls.notify[0].message, "(3) Inbox");
   assert.equal(t.calls.badge.at(-1), "1");
 
   // Activating the tab clears the flag and the badge.
@@ -130,18 +123,26 @@ test("refresh cycle with news: flags it, notifies once, unloads again", async ()
   assert.equal(t.calls.badge.at(-1), "");
 });
 
-test("no desktop notification when notifyOnFound is off", async () => {
+test("global auto-refresh from the popup settings reloads unloaded pinned tabs", async () => {
   const t = setup({
-    settings: cfg({ notifyOnFound: false, profiles: [{ id: "p", pinned: "only", refresh: { enabled: true, intervalMin: 1 } }] }),
-    tabs: [{ ...baseTab, id: 7, pinned: true, discarded: true, title: "(2) Chat", lastAccessed: 0 }],
-    session: { mtu: { refreshedAt: { 7: 0 } } },
+    settings: cfg({ refresh: { enabled: true, intervalMin: 10 } }),
+    tabs: [
+      { ...baseTab, id: 1, pinned: true, discarded: true, lastAccessed: 0 },
+      { ...baseTab, id: 2, discarded: true, lastAccessed: 0 },
+    ],
+    session: { mtu: { refreshedAt: { 1: 0, 2: 0 } } },
   });
   await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
-  t.tabs[0].discarded = false;
-  await t.listeners["tabs.onUpdated"](7, { status: "complete" });
-  await t.timers[0]();
-  assert.deepEqual(t.calls.notify, []);
-  assert.equal(t.calls.badge.at(-1), "1");
+  assert.deepEqual(t.calls.reload, [1]);
+});
+
+test("pinned tabs are left alone when skipPinned is on", async () => {
+  const t = setup({
+    settings: cfg({ skipPinned: true }),
+    tabs: [{ ...baseTab, id: 1, pinned: true, lastAccessed: 0 }, { ...baseTab, id: 2, lastAccessed: 0 }],
+  });
+  await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
+  assert.deepEqual(t.calls.discard, [2]);
 });
 
 test("a stale refresh is finished by the next tick", async () => {
