@@ -149,6 +149,7 @@ test("sanitizeSettings: defaults, coercion and validation", () => {
   assert.deepEqual(d.profiles, []);
   assert.equal(d.skipPinned, false);
   assert.equal(d.greyIcons, false);
+  assert.equal(d.sleepMark, true);
   assert.equal(d.restoreUnloaded, true);
   assert.deepEqual(d.refresh, { enabled: false, intervalMin: 15, pinnedOnly: true });
   const s = S.sanitizeSettings({

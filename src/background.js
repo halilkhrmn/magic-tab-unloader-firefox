@@ -53,11 +53,11 @@ function setPageIcon(href) {
 }
 
 // Best effort: any failure just leaves the original icon in place.
-async function greyOutIcon(tab) {
+async function greyOutIcon(tab, withZ) {
   try {
     if (!tab.favIconUrl || !/^(https?|data):/.test(tab.favIconUrl)) return;
     if (!(await browser.permissions.contains(ALL_SITES))) return;
-    const dataUrl = await makeGreyIcon(tab.favIconUrl);
+    const dataUrl = await makeGreyIcon(tab.favIconUrl, withZ);
     await browser.scripting.executeScript({ target: { tabId: tab.id }, func: setPageIcon, args: [dataUrl] });
     // Give Firefox a moment to pick up the new icon before the page is unloaded.
     for (let i = 0; i < 8; i++) {
@@ -71,8 +71,9 @@ async function greyOutIcon(tab) {
 
 async function discard(tab) {
   try {
-    if ((await loadSettings()).greyIcons) {
-      await greyOutIcon(tab);
+    const settings = await loadSettings();
+    if (settings.greyIcons) {
+      await greyOutIcon(tab, settings.sleepMark);
       if ((await browser.tabs.get(tab.id)).active) return; // the user switched to it meanwhile
     }
     await browser.tabs.discard(tab.id);

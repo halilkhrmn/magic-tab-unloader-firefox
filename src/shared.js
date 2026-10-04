@@ -10,6 +10,7 @@ const DEFAULT_SETTINGS = {
   skipAudible: true, // never unload tabs that are playing sound
   skipPinned: false, // never unload pinned tabs
   restoreUnloaded: true, // after a browser restart, unload again the tabs that were unloaded before it closed
+  sleepMark: true, // draw a sleeping "zZ" on the greyed-out icon
   greyIcons: false, // grey out the favicon of tabs we unload (needs the optional all-sites permission)
   // Periodically reload unloaded tabs in the background so the site can show its
   // notification dot / title counter, then unload them again.
@@ -203,6 +204,7 @@ function sanitizeSettings(raw) {
     skipPinned: !!raw.skipPinned,
     restoreUnloaded: raw.restoreUnloaded === undefined ? d.restoreUnloaded : !!raw.restoreUnloaded,
     greyIcons: !!raw.greyIcons,
+    sleepMark: raw.sleepMark === undefined ? d.sleepMark : !!raw.sleepMark,
     refresh: {
       enabled: !!(raw.refresh && raw.refresh.enabled),
       intervalMin: Math.max(1, num(raw.refresh && raw.refresh.intervalMin, d.refresh.intervalMin)),
