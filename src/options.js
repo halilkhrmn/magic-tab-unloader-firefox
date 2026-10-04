@@ -59,6 +59,7 @@ function collect() {
     skipAudible: $("skipAudible").checked,
     skipPinned: $("skipPinned").checked,
     greyIcons: $("greyIcons").checked,
+    sleepMark: $("sleepMark").checked,
     restoreUnloaded: $("restoreUnloaded").checked,
     refresh: { enabled: $("refreshOn").checked, intervalMin: $("refreshInterval").value, pinnedOnly: $("pinnedOnly").checked },
     notificationPattern: $("notificationPattern").value,
@@ -71,12 +72,19 @@ function render() {
   $("skipAudible").checked = settings.skipAudible;
   $("skipPinned").checked = settings.skipPinned;
   $("greyIcons").checked = settings.greyIcons;
+  $("sleepMark").checked = settings.sleepMark;
+  syncSleepMark();
   $("restoreUnloaded").checked = settings.restoreUnloaded;
   $("refreshOn").checked = settings.refresh.enabled;
   $("refreshInterval").value = settings.refresh.intervalMin;
   $("pinnedOnly").checked = settings.refresh.pinnedOnly;
   $("notificationPattern").value = settings.notificationPattern;
   $("profiles").replaceChildren(...settings.profiles.map(profileEl));
+}
+
+// The "zZ" only matters while the icon is greyed out.
+function syncSleepMark() {
+  $("sleepMark").disabled = !$("greyIcons").checked;
 }
 
 function say(msg) {
@@ -89,12 +97,14 @@ function say(msg) {
   settings.greyIcons = settings.greyIcons && (await browser.permissions.contains({ origins: ["<all_urls>"] }));
   render();
   $("greyIcons").onchange = async () => {
+    syncSleepMark();
     try {
       if ($("greyIcons").checked) {
         // permissions.request must run straight from the click, before any other await.
         const granted = await browser.permissions.request({ origins: ["<all_urls>"] });
         if (!granted) {
           $("greyIcons").checked = false;
+          syncSleepMark();
           say("Permission was not granted");
         }
       } else {
@@ -102,6 +112,7 @@ function say(msg) {
       }
     } catch (e) {
       $("greyIcons").checked = false;
+      syncSleepMark();
       say("Could not change the permission: " + e.message);
     }
   };

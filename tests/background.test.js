@@ -10,7 +10,7 @@ const MIN = 60000;
 function setup({ tabs, settings, session = {}, granted = false, runTimers = false, snapshot }) {
   const store = { local: { settings }, session: { ...session } };
   if (snapshot) store.local.unloadedSnapshot = snapshot;
-  const calls = { discard: [], reload: [], badge: [], menus: [], script: [], grey: [] };
+  const calls = { discard: [], reload: [], badge: [], menus: [], script: [], grey: [], greyZ: [] };
   const timers = [];
   const listeners = {};
   const ev = (name) => ({ addListener: (fn) => (listeners[name] = fn) });
@@ -61,8 +61,9 @@ function setup({ tabs, settings, session = {}, granted = false, runTimers = fals
   const ctx = vm.createContext({
     browser, console, URL, JSON, Date, Promise,
     setTimeout: (fn) => (runTimers ? fn() : timers.push(fn)),
-    makeGreyIcon: async (url) => {
+    makeGreyIcon: async (url, withZ) => {
       calls.grey.push(url);
+      calls.greyZ.push(withZ);
       return "data:image/png;base64,GREY";
     },
   });
@@ -296,4 +297,19 @@ test("restore does nothing when the option is off", async () => {
   await t.listeners["runtime.onStartup"]();
   assert.deepEqual(t.calls.discard, []);
   assert.equal(t.store.session.mtu, undefined);
+});
+
+test("greyIcons: the sleeping zZ follows the sleepMark setting (on by default)", async () => {
+  const run = async (settings) => {
+    const t = setup({
+      settings,
+      granted: true,
+      runTimers: true,
+      tabs: [{ ...baseTab, id: 1, lastAccessed: 0, favIconUrl: "https://example.com/favicon.ico" }],
+    });
+    await t.listeners["alarms.onAlarm"]({ name: "mtu-tick" });
+    return t.calls.greyZ;
+  };
+  assert.deepEqual(await run(cfg({ greyIcons: true })), [true]);
+  assert.deepEqual(await run(cfg({ greyIcons: true, sleepMark: false })), [false]);
 });
